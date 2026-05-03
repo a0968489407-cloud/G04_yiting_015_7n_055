@@ -9,6 +9,9 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.ArrayList;
 import javax.swing.Timer;
+
+import main.PowerUp;
+
 import javax.swing.JPanel;
 
 public class GamePanel extends JPanel implements ActionListener, KeyListener {
@@ -26,6 +29,17 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
     //星星
     ArrayList<Star> stars = new ArrayList<>();
+
+    // 道具列表
+    ArrayList<PowerUp> powerUps = new ArrayList<>();
+
+    // 道具欄：儲存道具的 type (0, 1, 2)
+    ArrayList<Integer> inventory = new ArrayList<>();
+
+    // 道具狀態
+    boolean hasShield = false;
+    boolean spreadShot = false;
+    int powerUpTimer = 0; // 道具效果剩餘時間 (幀數)
 
     // 目前是第幾波
     int wave = 1; 
@@ -62,9 +76,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
     // 新增：將初始化狀態獨立成一個方法，方便重新開始時呼叫 
     public void initGame() {
-        shooter = new Shooter(375, 500); 
+        shooter = new Shooter(375, 650); 
         bullets = new ArrayList<>();
         aliens = new ArrayList<>();
+        powerUps = new ArrayList<>();
         
         spawnAliens(); // 直接呼叫這個，不要再手動寫 for 迴圈生 5 隻
 
@@ -73,26 +88,41 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         alienDirection = 1; 
         isGameOver = false;
         isWin = false;
+        hasShield = false;
+        spreadShot = false;
+        powerUpTimer = 0;
 }
 
     public void spawnAliens() {
-        aliens.clear(); // 清空舊的（包含爆炸殘骸）
-        
-        // 假設每回合增加難度，我們用 wave 來決定排數
-        // 例如：第 1 回合 3 排，第 2 回合 4 排...
-        int rows = 3 + (wave / 2); 
-        int cols = 6; // 每排 6 隻
-        
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                Alien a = new Alien();
-                a.x = 100 + c * 80;  // 間距 80
-                a.y = 30 + r * 50;   // 每排垂直間距 50
-                a.isAlive = true;
-                aliens.add(a);
+    aliens.clear();
+    
+    int rows = 3 + (wave / 2); 
+    int cols = 6;
+    
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            // 邏輯修改：預設 type 為 0 (普通)
+            int type = 0;
+            
+            // 只有在第 2 輪 (wave >= 2) 開始，才啟用俯衝者生成機率
+            if (wave >= 2) {
+                // 隨著回合數增加，俯衝者的出現機率也可以變高 (Wave 2 是 5%，之後每輪增加 5%)
+                double spawnRate = 0.05 + ((wave - 2) * 0.05);
+                type = (Math.random() < spawnRate) ? 1 : 0;
             }
+            // 在 spawnAliens() 迴圈內，加入機率生成 UFO
+            if (wave >= 2 && Math.random() < 1) { 
+                type = 2; // 1% 機率生成 UFO
+            }
+            
+            Alien a = new Alien(type);
+            a.x = 100 + c * 80;
+            a.y = -100 + r * 50; 
+            a.isAlive = true;
+            aliens.add(a);
         }
     }
+}
 
     @Override
     protected void paintComponent(Graphics g) {
@@ -149,6 +179,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 for (Alien a : aliens) {
                     a.draw(g); 
                 }
+                for (PowerUp p : powerUps) {
+                    p.draw(g);
+                }
                 
                 //繪製過場文字
                 if (waveDisplayTimer > 0) {
@@ -173,6 +206,37 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             }
 
             }
+            
+            // --- 繪製橫向道具欄 (固定在右下角) ---
+            int slotWidth = 40;   // 每個格子寬度
+            int gap = 10;         // 格子間距
+            int startX = getWidth() - 170; // 讓欄位靠右 (170 是總寬度預留)
+            int startY = getHeight() - 70; // 讓欄位靠底
+
+            // 1. 繪製標題
+            g.setColor(Color.WHITE);
+            g.drawString("ITEMS", startX, startY - 10);
+
+            // 2. 繪製 3 個空槽位 (固定位置)
+            for (int i = 0; i < 3; i++) {
+                g.setColor(Color.BLACK);
+                g.fillRect(startX + (i * (slotWidth + gap)), startY, slotWidth, slotWidth);
+                g.setColor(Color.GRAY);
+                g.drawRect(startX + (i * (slotWidth + gap)), startY, slotWidth, slotWidth);
+            }
+
+            // 3. 繪製已收集的道具 (橫向排列)
+            for (int i = 0; i < inventory.size(); i++) {
+                int type = inventory.get(i);
+                // 設定顏色
+                if (type == 0) g.setColor(Color.BLUE);
+                else if (type == 1) g.setColor(Color.WHITE);
+                else g.setColor(Color.YELLOW);
+                
+                // 關鍵：將 i * (slotWidth + gap) 加在 X 座標上，Y 座標固定
+                g.fillRect(startX + (i * (slotWidth + gap)) + 5, startY + 5, 30, 30);
+            }
+
             // 分數永遠顯示在左上角 [cite: 16]
             g.setColor(Color.WHITE);
             g.setFont(new Font("Arial", Font.BOLD, 20)); 
@@ -244,10 +308,40 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                     if (bulletRect.intersects(alienRect)) {
                         a.isAlive = false; // 標記為死亡，啟動爆炸動畫
                         score += 10;
+                        if (a.type == 2) { // 假設 type 2 是 UFO
+                            int rType = new java.util.Random().nextInt(3);
+                            powerUps.add(new PowerUp(a.x, a.y, rType));
+                        }
                         bullets.remove(i); // 子彈消失
                         break;
                     }
                 }
+            }
+        }
+
+        for (int i = powerUps.size() - 1; i >= 0; i--) {
+            PowerUp p = powerUps.get(i);
+            p.update();
+            
+            // 撿取判斷
+            Rectangle playerRect = new Rectangle(shooter.x, shooter.y, 50, 20);
+            if (playerRect.intersects(new Rectangle(p.x, p.y, 20, 20))) {
+                System.out.println("道具被吃掉了！目前的背包大小: " + inventory.size());
+                if (inventory.size() < 3) { // 設定最多持有 3 個
+                    inventory.add(p.type);
+                    System.out.println("道具已存入！目前數量: " + inventory.size());
+                }
+                powerUps.remove(i);
+                break; // 撞到一個就跳出
+             }
+        }
+
+        // --- 道具計時器 ---
+        if (powerUpTimer > 0) {
+            powerUpTimer--;
+            if (powerUpTimer == 0) {
+                hasShield = false;
+                spreadShot = false;
             }
         }
 
@@ -267,9 +361,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             spawnAliens();  
         }
         
-        // 條件二：外星人到達底部 (接近玩家 y=500 的位置)
+        // 條件二：外星人到達底部 (接近玩家 y=700 的位置)
         for (Alien a : aliens) {
-            if (a.y + a.height >= 480) {
+            if (a.y + a.height >= 700) {
                 isGameOver = true;
                 isWin = false;
                 break;
@@ -278,6 +372,13 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         repaint(); 
     }
+
+    public void activatePowerUp(int type) {
+        if (type == 0) hasShield = true;
+        if (type == 1) { /* 減速邏輯 */ }
+        if (type == 2) spreadShot = true;
+        powerUpTimer = 500; // 持續 10 秒
+}
 
     @Override
     public void keyPressed(KeyEvent e) {
@@ -309,6 +410,14 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 shooter.move(15); 
             } else if (key == KeyEvent.VK_SPACE) {
                 bullets.add(new Bullet(shooter.x + 22, shooter.y)); 
+            }
+
+            // 在 keyPressed(KeyEvent e) 中新增：
+            if (key == KeyEvent.VK_Z) { // 按下 Z 鍵使用道具
+                if (!inventory.isEmpty()) {
+                    int itemToUse = inventory.remove(0); // 拿取並移除第一個道具
+                    activatePowerUp(itemToUse); // 呼叫效果
+                }
             }
         }
     }
