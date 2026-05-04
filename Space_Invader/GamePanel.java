@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import javax.swing.Timer;
 
 import main.PowerUp;
+import main.UFO;
 
 import javax.swing.JPanel;
 
@@ -19,13 +20,17 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     Shooter shooter;
     ArrayList<Bullet> bullets;
     ArrayList<Alien> aliens;
+    UFO ufo;
     int alienDirection = 1; 
     int score = 0; 
+    
     
     // 新增：遊戲狀態變數 [cite: 135, 136]
     boolean isStarted = false; // 預設為 false，表示先顯示歡迎畫面
     boolean isGameOver = false;
     boolean isWin = false;
+    boolean isSlowed = false;
+    int slowCounter = 0; // 用來計算減速剩餘時間
 
     //星星
     ArrayList<Star> stars = new ArrayList<>();
@@ -40,6 +45,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     boolean hasShield = false;
     boolean spreadShot = false;
     int powerUpTimer = 0; // 道具效果剩餘時間 (幀數)
+    int slowTimer = 0; // 減速效果剩餘時間 (幀數)
 
     // 目前是第幾波
     int wave = 1; 
@@ -80,6 +86,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         bullets = new ArrayList<>();
         aliens = new ArrayList<>();
         powerUps = new ArrayList<>();
+        ufo = new UFO();
         
         spawnAliens(); // 直接呼叫這個，不要再手動寫 for 迴圈生 5 隻
 
@@ -91,38 +98,42 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         hasShield = false;
         spreadShot = false;
         powerUpTimer = 0;
+        slowTimer = 0; // 初始化減速計時器
+        ufo.active = false; // 確保 UFO 也被重置
+        isSlowed = false;
+        slowCounter = 0; // 用來計算減速剩餘時間
 }
 
     public void spawnAliens() {
-    aliens.clear();
-    
-    int rows = 3 + (wave / 2); 
-    int cols = 6;
-    
-    for (int r = 0; r < rows; r++) {
-        for (int c = 0; c < cols; c++) {
-            // 邏輯修改：預設 type 為 0 (普通)
-            int type = 0;
-            
-            // 只有在第 2 輪 (wave >= 2) 開始，才啟用俯衝者生成機率
-            if (wave >= 2) {
-                // 隨著回合數增加，俯衝者的出現機率也可以變高 (Wave 2 是 5%，之後每輪增加 5%)
-                double spawnRate = 0.05 + ((wave - 2) * 0.05);
-                type = (Math.random() < spawnRate) ? 1 : 0;
+        aliens.clear();
+        
+        int rows = 3 + (wave / 2); 
+        int cols = 6;
+        
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                // 邏輯修改：預設 type 為 0 (普通)
+                int type = 0;
+                
+                // 只有在第 2 輪 (wave >= 2) 開始，才啟用俯衝者生成機率
+                if (wave >= 2) {
+                    // 隨著回合數增加，俯衝者的出現機率也可以變高 (Wave 2 是 5%，之後每輪增加 5%)
+                    double spawnRate = 0.05 + ((wave - 2) * 0.05);
+                    type = (Math.random() < spawnRate) ? 1 : 0;
+                }
+                /* 
+                // 在 spawnAliens() 迴圈內，加入機率生成 UFO
+                if (wave >= 2 && Math.random() < 1) { 
+                    type = 2; // 1% 機率生成 UFO
+                }*/
+                Alien a = new Alien(type);
+                a.x = 100 + c * 80;
+                a.y = -100 + r * 50; 
+                a.isAlive = true;
+                aliens.add(a);
             }
-            // 在 spawnAliens() 迴圈內，加入機率生成 UFO
-            if (wave >= 2 && Math.random() < 1) { 
-                type = 2; // 1% 機率生成 UFO
-            }
-            
-            Alien a = new Alien(type);
-            a.x = 100 + c * 80;
-            a.y = -100 + r * 50; 
-            a.isAlive = true;
-            aliens.add(a);
         }
     }
-}
 
     @Override
     protected void paintComponent(Graphics g) {
@@ -172,7 +183,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             } 
             else {
                 // 遊戲進行中，繪製所有元素
-                shooter.draw(g); 
+                shooter.draw(g, hasShield);
                 for (Bullet b : bullets) {
                     b.draw(g); 
                 }
@@ -182,28 +193,29 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 for (PowerUp p : powerUps) {
                     p.draw(g);
                 }
+                ufo.draw(g);
                 
                 //繪製過場文字
                 if (waveDisplayTimer > 0) {
-                // --- 閃爍邏輯：每 200 毫秒切換一次顯示狀態 ---
-                if ((System.currentTimeMillis() / 200) % 2 == 0) {
-                    String waveText = "WAVE " + wave;
+                    // --- 閃爍邏輯：每 200 毫秒切換一次顯示狀態 ---
+                    if ((System.currentTimeMillis() / 200) % 2 == 0) {
+                        String waveText = "WAVE " + wave;
+                        
+                        // 設定超大字體
+                        Font waveFont = new Font("Courier New", Font.BOLD, 100); 
+                        g.setFont(waveFont);
+
+                        // 1. 繪製白色陰影 (位移 5 像素)
+                        g.setColor(Color.WHITE);
+                        g.drawString(waveText, 205, 355); 
+
+                        // 2. 繪製橘色主文字
+                        g.setColor(Color.ORANGE);
+                        g.drawString(waveText, 200, 350); 
+                    }
                     
-                    // 設定超大字體
-                    Font waveFont = new Font("Courier New", Font.BOLD, 100); 
-                    g.setFont(waveFont);
-
-                    // 1. 繪製白色陰影 (位移 5 像素)
-                    g.setColor(Color.WHITE);
-                    g.drawString(waveText, 205, 355); 
-
-                    // 2. 繪製橘色主文字
-                    g.setColor(Color.ORANGE);
-                    g.drawString(waveText, 200, 350); 
+                    waveDisplayTimer--; // 計時器減少
                 }
-                
-                waveDisplayTimer--; // 計時器減少
-            }
 
             }
             
@@ -214,6 +226,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             int startY = getHeight() - 70; // 讓欄位靠底
 
             // 1. 繪製標題
+            g.setFont(new Font("Arial", Font.BOLD, 14));
             g.setColor(Color.WHITE);
             g.drawString("ITEMS", startX, startY - 10);
 
@@ -273,49 +286,95 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             edgeCooldown--;
         } 
 
+        // --- UFO 邏輯 ---
+        if (!ufo.active) {
+            // 給予極低的機率隨機生成，例如每幀 0.1% 機率
+            if (Math.random() < 0.001) { 
+                ufo.spawn();
+            }
+        } else {
+            ufo.update(); // 讓它移動
+        }
+
         // --- 外星人移動與碰壁反彈 ---
         boolean hitEdge = false;
+
+        // 在迴圈外增加計數器運算
+        if (isSlowed) {
+            slowTimer--;
+            slowCounter++;
+        }
+
         for (Alien a : aliens) {
             if (a.isAlive && waveDisplayTimer == 0) {
-                a.move(alienDirection, wave);
-                // 只有在冷卻時間結束後，才檢查邊界
+                
+                // 1. 偵測邊界 (這段一定要在外面，確保每一幀都會偵測)
                 if (edgeCooldown == 0 && (a.x <= 0 || a.x >= 750)) {
                     hitEdge = true;
+                }
+
+                // 2. 移動邏輯 (只在該移動的幀才呼叫 move)
+                if (!isSlowed || (slowCounter % 2 == 0)) {
+                    a.move(alienDirection, wave);
                 }
             }
         }
 
-        // 如果有任一「活著」的外星人撞到邊緣，全體轉向並下移
+        // 重置計數器 (避免數字過大溢位)
+        if (slowCounter >= 100) {
+            slowCounter = 0;
+        }
+
+        // 如果有任一外星人撞到邊緣，全體轉向並下移
         if (hitEdge) {
             alienDirection *= -1;
-            edgeCooldown = 10; // 觸發後鎖定 10 幀 (約 0.2 秒) 不再偵測邊界
+            edgeCooldown = 10; 
             for (Alien a : aliens) {
                 if (a.isAlive) a.y += 20;
             }
         }
 
+        // 當時間耗盡
+        if (slowTimer <= 0) {
+            isSlowed = false;   // 關閉減速狀態
+            slowTimer = 0;      // 重置時間
+            slowCounter = 0;    // 重置計數器
+        }
+
         // --- 碰撞檢測 ---
         for (int i = bullets.size() - 1; i >= 0; i--) {
             Bullet b = bullets.get(i);
+            Rectangle bulletRect = new Rectangle(b.x, b.y, 5, 10);
+            boolean hitSomething = false; // 紀錄這發子彈有沒有打到東西
+
+            // 1. 檢查是否打到外星人
             for (int j = aliens.size() - 1; j >= 0; j--) {
                 Alien a = aliens.get(j);
-                
-                // 只跟還活著的外星人進行碰撞檢測
                 if (a.isAlive) {
-                    Rectangle bulletRect = new Rectangle(b.x, b.y, 5, 10);
                     Rectangle alienRect = new Rectangle(a.x, a.y, a.width, a.height);
-
                     if (bulletRect.intersects(alienRect)) {
-                        a.isAlive = false; // 標記為死亡，啟動爆炸動畫
+                        a.isAlive = false; 
                         score += 10;
-                        if (a.type == 2) { // 假設 type 2 是 UFO
-                            int rType = new java.util.Random().nextInt(3);
-                            powerUps.add(new PowerUp(a.x, a.y, rType));
-                        }
-                        bullets.remove(i); // 子彈消失
-                        break;
+                        hitSomething = true;
+                        break; // 打到就跳出外星人迴圈
                     }
                 }
+            }
+
+            // 2. 檢查是否打到 UFO (這段要獨立出來，不要包在外星人迴圈裡)
+            if (ufo.active && bulletRect.intersects(ufo.getBounds())) {
+                score += 500; 
+                ufo.active = false; // UFO 消失
+                hitSomething = true;
+                
+                // --- 掉落道具 ---
+                int rType = new java.util.Random().nextInt(3); // 0, 1, 2
+                powerUps.add(new PowerUp(ufo.x, ufo.y, rType));
+            }
+
+            // 3. 如果打到了東西，子彈才消失
+            if (hitSomething) {
+                bullets.remove(i);
             }
         }
 
@@ -356,17 +415,31 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         // --- 新增：遊戲結束條件判定 [cite: 17, 18, 50] ---
         // --- 在 actionPerformed 尾端修正勝利判定 ---
         if (aliens.isEmpty()) {
+
+            //條件一: 全部外星人被消滅，且已完成第5波攻擊，即勝利
+            if(wave > 5){
+                isGameOver = true;
+                isWin = true;   
+                return; // 直接結束，不再進入下一波
+            }
             wave++;
             waveDisplayTimer = 100; // 顯示約 2 秒 (100 * 20ms)
             spawnAliens();  
         }
         
-        // 條件二：外星人到達底部 (接近玩家 y=700 的位置)
+        // --- 修改為：防護罩防禦邏輯 ---
         for (Alien a : aliens) {
-            if (a.y + a.height >= 700) {
-                isGameOver = true;
-                isWin = false;
-                break;
+            if (a.isAlive && a.y + a.height >= 650) {
+                if (hasShield) {
+                    // 防護罩啟動時：撞到保護罩的外星人直接死亡，防護罩消耗
+                    a.isAlive = false;
+                    
+                }    
+                else {//外星人到底部，且沒有防護罩技能，遊戲結束 
+                    isGameOver = true;
+                    isWin = false;
+                    break;
+                }
             }
         }
 
@@ -374,11 +447,20 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     public void activatePowerUp(int type) {
-        if (type == 0) hasShield = true;
-        if (type == 1) { /* 減速邏輯 */ }
-        if (type == 2) spreadShot = true;
-        powerUpTimer = 500; // 持續 10 秒
-}
+        if (type == 0) { // 0 = 防護罩
+            hasShield = true;
+            powerUpTimer = 500; // 持續 10 秒
+        }
+        if (type == 1) { // 1 = 減速
+            isSlowed = true;
+            slowTimer = 400; // 設定減速計時器 8 秒 (400 * 20ms = 8000ms)
+            slowCounter = 0; // 重置計數器，確保減速效果從下一幀開始生效
+        }
+        if (type == 2) {
+            spreadShot = true;
+            powerUpTimer = 500; // 持續 10 秒
+        }
+    }
 
     @Override
     public void keyPressed(KeyEvent e) {
@@ -409,7 +491,17 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             } else if (key == KeyEvent.VK_RIGHT) {
                 shooter.move(15); 
             } else if (key == KeyEvent.VK_SPACE) {
-                bullets.add(new Bullet(shooter.x + 22, shooter.y)); 
+                if (spreadShot){ 
+                    for(int i =0;i<3;i++){
+                        // 發射扇形三發子彈
+                        bullets.add(new Bullet(shooter.x + 22, shooter.y, -3, -10)); // 左斜
+                        bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -10));  // 直線
+                        bullets.add(new Bullet(shooter.x + 22, shooter.y, 3, -10));  // 右斜
+                    }
+                } else {
+                    // 普通狀態，只發射直線一發
+                    bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -10));
+                }
             }
 
             // 在 keyPressed(KeyEvent e) 中新增：
