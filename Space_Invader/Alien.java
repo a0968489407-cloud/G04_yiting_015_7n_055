@@ -39,8 +39,8 @@ public class Alien {
             g.fillRect(x + 20 + offsetX, y + 15 + offsetY, 3, 3);
         }
     }
-
-    // 繪圖法畫出飛碟 (UFO)
+ 
+   /*  // 繪圖法畫出飛碟 (UFO)
     void drawUFO(Graphics g) {
         // 為了讓飛碟比普通外星人寬一點點，微調座標
         int ufoX = x - 5;
@@ -73,15 +73,16 @@ public class Alien {
             g.setColor(Color.YELLOW);
             g.fillOval(ufoX + 22, y + 20, 6, 6);
         }
-    }
+    }*/
 
     void drawNormal(Graphics g) {
 
+        /* 
         // --- UFO 造型 (type 2) ---
         if (type == 2) {
             drawUFO(g);
             return; // 畫完 UFO 就結束，不畫普通外星人造型
-        }
+        }*/
 
         // 根據類型決定顏色 (俯衝者是紅色，普通是綠色)
         Color bodyColor = (type == 1) ? Color.RED : Color.GREEN;
