@@ -74,7 +74,7 @@ public class Display extends JPanel implements ActionListener {
                             if (gameManager.balls.size() >= 6) return; 
                             if (gameManager.isInsideArena(mx, my)) {
                                 Color newColor = gameManager.getAvailableColor();
-                                Ball newBall = new Ball(mx, my, newColor);
+                                Ball newBall = new Ball(mx, my, newColor, false);
                                 gameManager.balls.add(newBall);
                                 gameManager.pendingBall = newBall; 
                             }
