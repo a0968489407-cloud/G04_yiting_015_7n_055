@@ -12,4 +12,4 @@ public class Game {
         frame.setResizable(false); 
         frame.setVisible(true);
     }
-} // test by 7n
+} 
