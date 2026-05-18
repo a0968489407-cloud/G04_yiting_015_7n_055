@@ -116,6 +116,17 @@ public class GameManager {
                 double dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < b.radius + item.radius) {
+
+                    if (item.type == 2) {
+                        SoundManager.playSpeedUp();   // 播放加速音效
+                    } else if (item.type == 4) {
+                        SoundManager.playSpeedDown(); // 播放減速音效
+                    } else if(item.type == 5) {
+                        SoundManager.playSplit();     // 播放分裂音效
+                    } else {
+                        SoundManager.playExtraLife(); // 播放加命音效
+                    }
+
                     if (item.type == 5 && !b.isTiny) { // 觸發分裂：必須是分裂道具且球不是小球
                         toRemove.add(b);
                         
@@ -228,6 +239,9 @@ public class GameManager {
                 b.myLines.add(new Line(wallX, wallY, b));
                 
                 b.hasEnteredGame = true; 
+
+                // --- 新增：播放撞牆音效 ---
+                SoundManager.playHit();
             }
         }
     }
@@ -267,6 +281,9 @@ public class GameManager {
                     b1.velocity.y -= p * ny;
                     b2.velocity.x += p * nx;
                     b2.velocity.y += p * ny;
+
+                    // --- 新增：播放互撞音效 ---
+                    SoundManager.playHit();
                 }
             }
         }
@@ -295,40 +312,46 @@ public class GameManager {
     }
 
     private void checkSurvival() {
-        int aliveCount = 0;
-        boolean someoneEntered = false; 
+        // 改用一個清單來記錄目前還活著的「顏色」
+        ArrayList<Color> aliveColors = new ArrayList<>();
+        boolean someoneEntered = false;
 
         for (Ball b : balls) {
-            if (b.isDead) continue; 
+            if (b.isDead) continue;
 
+            // 沒線時的生命消耗與復活邏輯
             if (b.hasEnteredGame && b.myLines.isEmpty()) {
                 if (b.lives > 1) {
-                    // --- 復活邏輯 ---
                     b.lives--; 
-                    // 1. 給予一條從球心指向圓心的虛擬線段，防止下一幀判定死亡
                     double wallX = arenaCenterX; 
                     double wallY = arenaCenterY;
                     b.myLines.add(new Line(wallX, wallY, b));
-                    
-                    // 2. 稍微彈開球體或改變方向，增加生存機會
                     b.velocity.x *= -0.8; 
                     b.velocity.y *= -0.8;
-                    
                     System.out.println("球 " + b.id + " 消耗生命復活！剩餘生命: " + b.lives);
+                    
+                    // 復活成功，這種類型依然活著，記錄顏色
+                    if (!aliveColors.contains(b.color)) {
+                        aliveColors.add(b.color);
+                    }
                 } else {
                     b.isDead = true;
                     b.deathTick = playTimeTicks; 
                 }
-            } 
-            else {
-            aliveCount++;
-            if (b.hasEnteredGame) someoneEntered = true; 
+            } else {
+                // 球體正常存活，記錄顏色（若清單中沒有就加進去）
+                if (!aliveColors.contains(b.color)) {
+                    aliveColors.add(b.color);
+                }
+                if (b.hasEnteredGame) someoneEntered = true; 
             }
-        }
-        
-        if (balls.size() >= 2 && someoneEntered && aliveCount <= 1) { 
+     }
+    
+        // --- 關鍵修正：當總球數大於等於 2，且有人碰過牆壁，但活著的「顏色種類」小於等於 1 時結束 ---
+        if (balls.size() >= 2 && someoneEntered && aliveColors.size() <= 1) { 
             currentState = GameState.GAME_OVER;
         }
+
     }
 
     private double pointToSegmentDistance(double px, double py, double x1, double y1, double x2, double y2) {
