@@ -273,7 +273,7 @@ public class Display extends JPanel implements ActionListener {
 
     private void drawUI(Graphics g) {
         // 排行榜
-        Rank.drawRanking(g, gameManager.balls); 
+        Rank.drawRanking(g, gameManager.balls, gameManager.currentMode); 
     
         // 動態改變 Start/Restart 文字
         if (btnStart != null) {
