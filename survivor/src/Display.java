@@ -180,7 +180,8 @@ public class Display extends JPanel implements ActionListener {
                 "2. Use right mouse button to remove a ball.\n" +
                 "3. Press SPACE to switch game mode.\n" +
                 "4. Press ENTER to start or restart the game.\n" +
-                "5. Avoid colliding with other balls and stay within the arena.";
+                "5. Avoid colliding with other balls and stay within the arena.\n" +
+                "6. Press ESC to exit the game.";
         JOptionPane.showMessageDialog(this, rules, "Game Rules", JOptionPane.INFORMATION_MESSAGE);
     }
 
