@@ -342,9 +342,10 @@ public class Display extends JPanel implements ActionListener {
 
     // --- 新增方法：繪製右上角動態倍速特效 ---
     private void drawSpeedIndicator(Graphics g) {
-        if(currentSpeedMultiplier <= 1.0) {
-            return; // 只有在加速時才顯示
+        if (gameManager.currentState == GameState.GAME_OVER || currentSpeedMultiplier <= 1.0) {
+            return;
         }
+
         int uiX = getWidth() - 250; // 右上角起點 X
         int uiY = 50; // 右上角起點 Y
 
