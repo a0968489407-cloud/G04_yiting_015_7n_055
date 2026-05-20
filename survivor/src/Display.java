@@ -137,6 +137,7 @@ public class Display extends JPanel implements ActionListener {
             }
         });
 
+        // 
         this.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
@@ -144,8 +145,30 @@ public class Display extends JPanel implements ActionListener {
                 else if (e.getKeyCode() == KeyEvent.VK_ENTER) handleStartRestart();
                 else if (e.getKeyCode() == KeyEvent.VK_R) showRules();
                 else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) System.exit(0);
+                
+                // --- 新增：按下鍵盤右鍵，開啟所有球的加速 ---
+                else if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+                    if (gameManager.balls != null) {
+                        for (Ball b : gameManager.balls) {
+                            b.isSpeeding = true;
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                // --- 新增：放開鍵盤右鍵，關閉所有球的加速 ---
+                if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+                    if (gameManager.balls != null) {
+                        for (Ball b : gameManager.balls) {
+                            b.isSpeeding = false;
+                        }
+                    }
+                }
             }
         });
+
     }
 
     private void handleStartRestart() {
