@@ -130,6 +130,8 @@ public class GameManager {
                     else if (item.type == 5) SoundManager.playSplit();
                     else SoundManager.playExtraLife();
 
+                    b.currentItemType = item.type; // 記錄球目前擁有的道具類型
+
                     if (item.type == 5 && !b.isTiny) { 
                         toRemove.add(b);
                         Ball s1 = new Ball(b.pos.x + 5, b.pos.y, b.color, true);

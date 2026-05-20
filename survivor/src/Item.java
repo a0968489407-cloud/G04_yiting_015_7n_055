@@ -12,10 +12,10 @@ public class Item {
     public boolean isAvailable;
     
     // 新增圖片變數
-    private static Image speedUpImg;
-    private static Image speedDownImg;
-    private static Image splitImg;
-    private static Image anotherLifeImg; // 生命道具圖片
+    public static Image speedUpImg;
+    public static Image speedDownImg;
+    public static Image splitImg;
+    public static Image anotherLifeImg; // 生命道具圖片
 
     public Item(double x, double y, int type) {
         num++;

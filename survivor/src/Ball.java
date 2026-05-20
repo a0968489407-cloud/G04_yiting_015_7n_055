@@ -22,6 +22,9 @@ public class Ball {
     public long splitTime; // 記錄分裂發生的時間點（毫秒）
     public static final long COOLDOWN = 3000; // 分裂後 3 秒才能融合
 
+
+    public int currentItemType = -1; // -1 代表沒有任何道具
+
     public Ball(double startX, double startY, Color assignedColor, boolean isTiny) {
         num++;
         this.id = num;
@@ -45,6 +48,7 @@ public class Ball {
         this.deathTick = 0;
         this.hasEnteredGame = false;
         this.lives = 1; // 預設 1 條命
+        this.currentItemType = -1; // 預設沒有任何道具
 
     }
 
