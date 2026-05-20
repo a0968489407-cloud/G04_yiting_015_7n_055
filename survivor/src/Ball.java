@@ -50,9 +50,9 @@ public class Ball {
 
     public void update() {
         if (!isFreezed && !isDead) {
-            // 讀取 Display 目前的倍率 (1.0 ~ 3.0)，動態改變每幀的位移距離
-            pos.x += velocity.x * Display.currentSpeedMultiplier;
-            pos.y += velocity.y * Display.currentSpeedMultiplier;
+            // --- 修改處：移除乘數，交給 GameManager 統一做時間快進 ---
+            pos.x += velocity.x;
+            pos.y += velocity.y;
         }
     }
 

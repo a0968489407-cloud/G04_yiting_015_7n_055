@@ -59,40 +59,153 @@ public class GameManager {
         return Math.sqrt(dx * dx + dy * dy) <= arenaRadius;
     }
 
+    private double timeAccumulator = 0.0;
+    
     public void update() {
         if (currentState != GameState.PLAYING)
             return;
-        playTimeTicks++;
 
-        // --- 新增：道具生成邏輯 ---
-        if (currentMode == GameMode.ITEM_MODE) {
-            itemSpawnTimer++;
+        // --- 核心修改：利用累加器把目前的遊戲倍率加進時間池 ---
+        timeAccumulator += Display.currentSpeedMultiplier;
 
-            // 遊戲剛開始時（此時 items 為空），3 秒 (180 幀) 就生成第一個道具
-            if (items.isEmpty() && itemSpawnTimer >= 180) {
-                spawnRandomItem();
-                itemSpawnTimer = 0;
+        // 只要時間池大於等於 1.0，遊戲世界就前進 1 幀（Tick），實現真正的流速加倍
+        while (timeAccumulator >= 1.0) {
+            timeAccumulator -= 1.0;
+
+            playTimeTicks++;
+
+            // 1. 道具生成邏輯
+            if (currentMode == GameMode.ITEM_MODE) {
+                itemSpawnTimer++;
+                if (items.isEmpty() && itemSpawnTimer >= 180) {
+                    spawnRandomItem();
+                    itemSpawnTimer = 0;
+                } else if (!items.isEmpty() && itemSpawnTimer > 300) {
+                    spawnRandomItem();
+                    itemSpawnTimer = 0;
+                }
             }
-            // 之後維持每 5 秒 (300 幀) 嘗試生成一個新道具
-            else if (!items.isEmpty() && itemSpawnTimer > 300) {
-                spawnRandomItem();
-                itemSpawnTimer = 0;
+
+            // 2. 計算道具磁力吸引效果
+            if (currentMode == GameMode.ITEM_MODE && items != null && balls != null) {
+                applyItemMagnetForce();
+            }
+
+            // 3. 更新所有球的位置
+            for (Ball b : balls) {
+                b.update();
+            }
+
+            // 4. 所有物理、碰撞、割線與存活判定 (快進時會更精準，絕對不穿牆)
+            checkWallCollisions();
+            checkBallCollisions();
+            checkLineCollisions();
+            
+            // --- 補回缺失的邏輯：道具碰撞與小球融合 ---
+            checkItemCollisions(); 
+            checkTinyBallMerge();  
+            
+            checkSurvival();
+        }
+    }
+
+    // --- 補回缺失的方法：處理球與道具的碰撞與分裂 ---
+    private void checkItemCollisions() {
+        ArrayList<Ball> toAdd = new ArrayList<>();
+        ArrayList<Ball> toRemove = new ArrayList<>();
+        Iterator<Item> itemIter = items.iterator();
+
+        while (itemIter.hasNext()) {
+            Item item = itemIter.next();
+            for (Ball b : balls) {
+                if (b.isDead) continue;
+
+                double dx = b.pos.x - item.pos.x;
+                double dy = b.pos.y - item.pos.y;
+                double dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < b.radius + item.radius) {
+                    if (item.type == 2) SoundManager.playSpeedUp();
+                    else if (item.type == 4) SoundManager.playSpeedDown();
+                    else if (item.type == 5) SoundManager.playSplit();
+                    else SoundManager.playExtraLife();
+
+                    if (item.type == 5 && !b.isTiny) { 
+                        toRemove.add(b);
+                        Ball s1 = new Ball(b.pos.x + 5, b.pos.y, b.color, true);
+                        Ball s2 = new Ball(b.pos.x - 5, b.pos.y, b.color, true);
+                        s1.lives = b.lives; 
+                        s2.lives = b.lives;
+
+                        double speedMultiplier = 1.3;
+                        double originalSpeed = Math.sqrt(b.velocity.x * b.velocity.x + b.velocity.y * b.velocity.y);
+                        double angle = Math.atan2(b.velocity.y, b.velocity.x);
+                        double angle1 = angle + Math.toRadians(30);
+                        double angle2 = angle - Math.toRadians(30);
+
+                        s1.myLines = new ArrayList<>(b.myLines); 
+                        s2.myLines = new ArrayList<>(b.myLines);
+                        s1.velocity.x = Math.cos(angle1) * originalSpeed * speedMultiplier;
+                        s1.velocity.y = Math.sin(angle1) * originalSpeed * speedMultiplier;
+                        s2.velocity.x = Math.cos(angle2) * originalSpeed * speedMultiplier;
+                        s2.velocity.y = Math.sin(angle2) * originalSpeed * speedMultiplier;
+                                            
+                        s1.isFreezed = s2.isFreezed = false;
+                        s1.hasEnteredGame = s2.hasEnteredGame = true;
+                        
+                        toAdd.add(s1);
+                        toAdd.add(s2);
+                    } else {
+                        item.applyEffect(b);
+                    }
+                    itemIter.remove(); 
+                    break;
+                }
             }
         }
+        balls.removeAll(toRemove);
+        balls.addAll(toAdd);
+    }
 
-        // --- 新增處：計算道具磁力吸引效果 ---
-        if (currentMode == GameMode.ITEM_MODE && items != null && balls != null) {
-            applyItemMagnetForce();
+    // --- 補回缺失的方法：處理分裂小球重新融合 ---
+    private void checkTinyBallMerge() {
+        ArrayList<Ball> toAdd = new ArrayList<>();
+        ArrayList<Ball> toRemove = new ArrayList<>();
+
+        for (int i = 0; i < balls.size(); i++) {
+            for (int j = i + 1; j < balls.size(); j++) {
+                Ball b1 = balls.get(i);
+                Ball b2 = balls.get(j);
+
+                if (b1.isDead || b2.isDead) continue;
+
+                if (b1.isTiny && b2.isTiny && b1.color.equals(b2.color)) {
+                    long now = System.currentTimeMillis();
+                    // 注意：因為是以現實時間（System.currentTimeMillis）計算冷卻，所以融合不受遊戲倍率影響，保持 3 秒
+                    if (now - b1.splitTime > Ball.COOLDOWN && now - b2.splitTime > Ball.COOLDOWN) {
+                        double dx = b2.pos.x - b1.pos.x;
+                        double dy = b2.pos.y - b1.pos.y;
+                        double dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < b1.radius + b2.radius) {
+                            toRemove.add(b1);
+                            toRemove.add(b2);
+                            
+                            Ball merged = new Ball(b1.pos.x, b1.pos.y, b1.color, false);
+                            merged.myLines = new ArrayList<>(b1.myLines); 
+                            merged.velocity = b1.velocity; 
+                            merged.isFreezed = false;
+                            merged.hasEnteredGame = true;
+                            merged.lives = Math.max(b1.lives, b2.lives); // 融合後繼承較高生命
+                            
+                            toAdd.add(merged);
+                        }
+                    }
+                }
+            }
         }
-
-        for (Ball b : balls)
-            b.update();
-
-        checkWallCollisions();
-        checkBallCollisions();
-        checkLineCollisions();
-
-        checkSurvival();
+        balls.removeAll(toRemove);
+        balls.addAll(toAdd);
     }
 
     // --- 新增方法：計算分層磁力物理邏輯 ---

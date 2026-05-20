@@ -219,7 +219,10 @@ public class Display extends JPanel implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         gameManager.update();
-        animationTick++; // 累加計時器用於箭頭動畫
+
+        // --- 修改處：讓動畫計時器累加時也乘以倍率，使動畫跟隨時間流速一起變快 ---
+        animationTick += Display.currentSpeedMultiplier;
+
         repaint();
     }
 
