@@ -77,12 +77,9 @@ public class GameManager {
             // 1. 道具生成邏輯
             if (currentMode == GameMode.ITEM_MODE) {
                 itemSpawnTimer++;
-                if (items.isEmpty() && itemSpawnTimer >= 180) {
+                if (itemSpawnTimer >= 120) { // 滿 120 幀 (2秒) 準時生成
                     spawnRandomItem();
-                    itemSpawnTimer = 0;
-                } else if (!items.isEmpty() && itemSpawnTimer > 300) {
-                    spawnRandomItem();
-                    itemSpawnTimer = 0;
+                    itemSpawnTimer = 0;      // 計時器歸零重新計算
                 }
             }
 
