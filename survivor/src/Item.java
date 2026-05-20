@@ -31,10 +31,10 @@ public class Item {
     private void loadImages() {
         try {
             // 請確保你的專案目錄下有這些圖檔，或換成你的路徑
-            speedUpImg = ImageIO.read(new File("survivor/src/lightning.png"));
-            speedDownImg = ImageIO.read(new File("survivor/src/freeze.png"));
-            splitImg = ImageIO.read(new File("survivor/src/cell.png"));
-            anotherLifeImg = ImageIO.read(new File("survivor/src/heart.png")); // 生命道具圖片
+            speedUpImg = ImageIO.read(new File("survivor/pic/lightning.png"));
+            speedDownImg = ImageIO.read(new File("survivor/pic/freeze.png"));
+            splitImg = ImageIO.read(new File("survivor/pic/cell.png"));
+            anotherLifeImg = ImageIO.read(new File("survivor/pic/heart.png")); // 生命道具圖片
         } catch (Exception e) {
             System.out.println("圖片載入失敗，將使用預設幾何圖形替代");
         }
