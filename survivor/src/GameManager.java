@@ -74,10 +74,6 @@ public class GameManager {
         checkBallCollisions();
         checkLineCollisions();
         
-        // --- 新增：核心機制處理 ---
-        checkItemCollisions(); // 檢查球與道具（加速、減速、分裂）
-        checkTinyBallMerge();  // 檢查小球是否可以融合回大球
-        
         checkSurvival();
     }
 
@@ -137,10 +133,6 @@ public class GameManager {
                         //小球繼承大球生命
                         s1.lives = b.lives; // 繼承生命
                         s2.lives = b.lives;
-
-                        // --- 新增：讓分裂出來的小球也同步繼承目前的右鍵加速狀態 ---
-                        s1.isSpeeding = b.isSpeeding;
-                        s2.isSpeeding = b.isSpeeding;
 
                         double speedMultiplier = 1.3;
                         double originalSpeed = Math.sqrt(b.velocity.x * b.velocity.x + b.velocity.y * b.velocity.y);

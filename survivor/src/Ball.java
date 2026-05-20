@@ -16,7 +16,6 @@ public class Ball {
     public boolean isDead;
     public int deathTick;
     public boolean hasEnteredGame;
-    public boolean isSpeeding = false; // 是否正在加速
 
     // 分裂與融合相關屬性
     public boolean isTiny; // 是否為分裂後的小球
@@ -51,14 +50,9 @@ public class Ball {
 
     public void update() {
         if (!isFreezed && !isDead) {
-            if (isSpeeding) {
-                // 按住右鍵時，位置更新量為原本的 200% (加速 20%)
-                pos.x += velocity.x * 2.0;
-                pos.y += velocity.y * 2.0;
-            } else {
-                // 正常速度移動
-                pos.add(velocity);
-            }
+            // 讀取 Display 目前的倍率 (1.0 ~ 3.0)，動態改變每幀的位移距離
+            pos.x += velocity.x * Display.currentSpeedMultiplier;
+            pos.y += velocity.y * Display.currentSpeedMultiplier;
         }
     }
 
