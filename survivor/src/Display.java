@@ -233,6 +233,41 @@ public class Display extends JPanel implements ActionListener {
                 (int) (gameManager.arenaCenterY - gameManager.arenaRadius),
                 (int) (gameManager.arenaRadius * 2), (int) (gameManager.arenaRadius * 2));
 
+        if (gameManager.currentMode == GameMode.ITEM_MODE && gameManager.items != null) {
+            for (Item item : gameManager.items) {
+                if (!item.isAvailable)
+                    continue;
+
+                // ---- 調整點 1：縮的速度加快 ----
+                // 將 animationTick 乘數從 2 加大到 4，讓波紋向內收縮的速度變為原本的 2 倍快！
+                int baseOffset = (animationTick * 4) % 120;
+
+                // ---- 調整點 2：用兩圈（前後錯開 60 像素） ----
+                int radius1 = 120 - baseOffset; // 第一圈（外圈）
+                int radius2 = 120 - ((baseOffset + 60) % 120); // 第二圈（內圈，錯開半個週期）
+
+                // ---- 調整點 3：顏色再亮一點 ----
+                // 將最後一個參數（不透明度 Alpha）從 30 調高到 100，光圈視覺上會亮非常多！
+                g.setColor(new Color(0, 191, 255, 100)); // 改用亮深天藍 (DeepSkyBlue)，亮度更強
+
+                // 畫出第一圈
+                if (radius1 > 0) {
+                    g.drawOval((int) item.pos.x - radius1, (int) item.pos.y - radius1,
+                            radius1 * 2, radius1 * 2);
+                }
+
+                // 畫出第二圈
+                if (radius2 > 0) {
+                    g.drawOval((int) item.pos.x - radius2, (int) item.pos.y - radius2,
+                            radius2 * 2, radius2 * 2);
+                }
+
+                // 靜態的最大邊界提示線（也稍微調亮一點點，Alpha 設為 40）
+                g.setColor(new Color(100, 100, 100, 40));
+                g.drawOval((int) item.pos.x - 120, (int) item.pos.y - 120, 240, 240);
+            }
+        }
+
         // 2. 畫出所有球與線
         if (gameManager.balls != null) {
             for (Ball b : gameManager.balls) {
