@@ -10,6 +10,7 @@ public class SoundManager {
     private static Clip speedDownClip;
     private static Clip splitClip;
     private static Clip extraLifeClip;
+    private static Clip knifeClip;
 
     // 初始化並預先載入音效
     public static void init() {
@@ -43,6 +44,12 @@ public class SoundManager {
             AudioInputStream extraLifeIn = AudioSystem.getAudioInputStream(extraLifeFile);
             extraLifeClip = AudioSystem.getClip();
             extraLifeClip.open(extraLifeIn);
+
+            // 6. 載入刀子音效 (Type 6)
+            File knifeFile = new File("survivor/src/knife sound.wav"); 
+            AudioInputStream knifeIn = AudioSystem.getAudioInputStream(knifeFile);
+            knifeClip = AudioSystem.getClip();
+            knifeClip.open(knifeIn);
 
         } catch (Exception e) {
             System.out.println("音效載入失敗，請檢查路徑與檔案格式 (.wav)。錯誤：" + e.getMessage());
@@ -86,6 +93,11 @@ public class SoundManager {
     // 播放加命音效 (Type 5)
     public static void playExtraLife() {
         playClip(extraLifeClip);
+    }
+
+    // 播放刀子音效 (Type 6)
+    public static void playKnife() {
+        playClip(knifeClip);
     }
 
     // 提取通用的播放邏輯，避免重複寫 Thread

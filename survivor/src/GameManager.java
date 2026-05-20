@@ -186,7 +186,14 @@ public class GameManager {
                     Line line = iterator.next();
                     double distToLine = pointToSegmentDistance(b.pos.x, b.pos.y, line.startX, line.startY, otherBall.pos.x, otherBall.pos.y);
                         
-                    if (distToLine <= b.radius) iterator.remove();
+                    if (distToLine <= b.radius) {
+                        iterator.remove(); // 這裡將別人的線切斷了
+                        
+                        // ====================================================
+                        // 【新增這行】每次線斷掉的時候，播放「唰」的飛刀割裂音效
+                        SoundManager.playKnife();
+                        // ====================================================
+                    }
                 }
             }
         }
