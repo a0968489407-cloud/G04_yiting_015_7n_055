@@ -10,8 +10,8 @@ public class GameManager {
     public GameMode currentMode;
 
     public double arenaCenterX, arenaCenterY, arenaRadius;
-    public Ball pendingBall = null; 
-    private int playTimeTicks = 0; 
+    public Ball pendingBall = null;
+    private int playTimeTicks = 0;
 
     // 新增：用於道具生成的計時器與隨機工具
     private Random random = new Random();
@@ -34,19 +34,23 @@ public class GameManager {
         this.pendingBall = null;
         this.playTimeTicks = 0;
         this.itemSpawnTimer = 0; // 重置計時器
-        Ball.num = 0; 
+        Ball.num = 0;
     }
 
     public Color getAvailableColor() {
-        Color[] allColors = {Color.RED, Color.BLUE, Color.YELLOW, Color.GREEN, Color.PINK, Color.ORANGE};
+        Color[] allColors = { Color.RED, Color.BLUE, Color.YELLOW, Color.GREEN, Color.PINK, Color.ORANGE };
         for (Color c : allColors) {
             boolean isUsed = false;
             for (Ball b : balls) {
-                if (b.color.equals(c)) { isUsed = true; break; }
+                if (b.color.equals(c)) {
+                    isUsed = true;
+                    break;
+                }
             }
-            if (!isUsed) return c;
+            if (!isUsed)
+                return c;
         }
-        return Color.WHITE; 
+        return Color.WHITE;
     }
 
     public boolean isInsideArena(double x, double y) {
@@ -55,52 +59,54 @@ public class GameManager {
         return Math.sqrt(dx * dx + dy * dy) <= arenaRadius;
     }
 
+    private double timeAccumulator = 0.0;
+    
     public void update() {
-        if (currentState != GameState.PLAYING) return;
-        playTimeTicks++; 
+        if (currentState != GameState.PLAYING)
+            return;
 
-        // --- 新增：道具生成邏輯 ---
-        if (currentMode == GameMode.ITEM_MODE) {
-            itemSpawnTimer++;
-            if (itemSpawnTimer > 300) { // 約每 5 秒嘗試生成一個道具
-                spawnRandomItem();
-                itemSpawnTimer = 0;
+        // --- 核心修改：利用累加器把目前的遊戲倍率加進時間池 ---
+        timeAccumulator += Display.currentSpeedMultiplier;
+
+        // 只要時間池大於等於 1.0，遊戲世界就前進 1 幀（Tick），實現真正的流速加倍
+        while (timeAccumulator >= 1.0) {
+            timeAccumulator -= 1.0;
+
+            playTimeTicks++;
+
+            // 1. 道具生成邏輯
+            if (currentMode == GameMode.ITEM_MODE) {
+                itemSpawnTimer++;
+                if (itemSpawnTimer >= 60*1.5) { // 滿 60*1.5 幀 (1*1.5秒) 
+                    spawnRandomItem();
+                    itemSpawnTimer = 0;      // 計時器歸零重新計算
+                }
             }
+
+            // 2. 計算道具磁力吸引效果
+            if (currentMode == GameMode.ITEM_MODE && items != null && balls != null) {
+                applyItemMagnetForce();
+            }
+
+            // 3. 更新所有球的位置
+            for (Ball b : balls) {
+                b.update();
+            }
+
+            // 4. 所有物理、碰撞、割線與存活判定 (快進時會更精準，絕對不穿牆)
+            checkWallCollisions();
+            checkBallCollisions();
+            checkLineCollisions();
+            
+            // --- 補回缺失的邏輯：道具碰撞與小球融合 ---
+            checkItemCollisions(); 
+            checkTinyBallMerge();  
+            
+            checkSurvival();
         }
-
-        for (Ball b : balls) b.update();
-
-        checkWallCollisions();
-        checkBallCollisions();
-        checkLineCollisions();
-        
-        // --- 新增：核心機制處理 ---
-        checkItemCollisions(); // 檢查球與道具（加速、減速、分裂）
-        checkTinyBallMerge();  // 檢查小球是否可以融合回大球
-        
-        checkSurvival();
     }
 
-    // 新增：在圓形競技場內隨機生成道具
-    private void spawnRandomItem() {
-        double angle = random.nextDouble() * Math.PI * 2;
-        // 讓道具生成在距離邊界稍遠一點的地方，避免剛生成就在牆壁外
-        double r = Math.sqrt(random.nextDouble()) * (arenaRadius - 50);
-        double x = arenaCenterX + r * Math.cos(angle);
-        double y = arenaCenterY + r * Math.sin(angle);
-        
-        // 隨機決定道具類型 (2:加速, 4:減速, 5:分裂, 6:生命)
-        int[] types = {2, 4, 5, 6};
-        int type = types[random.nextInt(types.length)];
-        
-        // 根據類型建立對應物件
-        if (type == 2) items.add(new ItemSpeedUp(x, y));
-        else if (type == 4) items.add(new ItemSpeedDown(x, y));
-        else if (type == 6) items.add(new ItemLife(x, y)); // 生命道具
-        else items.add(new Item(x, y, 5)); // 分裂道具
-    }
-
-    // 新增：處理球與道具的碰撞與分裂
+    // --- 處理球與道具的碰撞、分裂、以及小球隨機選一顆變回大球 ---
     private void checkItemCollisions() {
         ArrayList<Ball> toAdd = new ArrayList<>();
         ArrayList<Ball> toRemove = new ArrayList<>();
@@ -116,94 +122,149 @@ public class GameManager {
                 double dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < b.radius + item.radius) {
+                    // 播放道具音效
+                    if (item.type == 2) SoundManager.playSpeedUp();
+                    else if (item.type == 4) SoundManager.playSpeedDown();
+                    else if (item.type == 5) SoundManager.playSplit();
+                    else SoundManager.playExtraLife();
 
-                    if (item.type == 2) {
-                        SoundManager.playSpeedUp();   // 播放加速音效
-                    } else if (item.type == 4) {
-                        SoundManager.playSpeedDown(); // 播放減速音效
-                    } else if(item.type == 5) {
-                        SoundManager.playSplit();     // 播放分裂音效
-                    } else {
-                        SoundManager.playExtraLife(); // 播放加命音效
-                    }
-
-                    if (item.type == 5 && !b.isTiny) { // 觸發分裂：必須是分裂道具且球不是小球
+                    // ====================================================
+                    // 情況 A：如果是大球吃到了「分裂道具」 (Type 5)
+                    // ====================================================
+                    if (item.type == 5 && !b.isTiny) {
                         toRemove.add(b);
-                        
-                        // 建立兩顆小球，繼承原本大球的顏色與位置
+
                         Ball s1 = new Ball(b.pos.x + 5, b.pos.y, b.color, true);
                         Ball s2 = new Ball(b.pos.x - 5, b.pos.y, b.color, true);
-
-                        //小球繼承大球生命
-                        s1.lives = b.lives; // 繼承生命
+                        s1.lives = b.lives;
                         s2.lives = b.lives;
+                        
+                        // 確保分裂出的小球在 Rank 能亮起細胞圖示
+                        s1.currentItemType = 5;
+                        s2.currentItemType = 5;
 
                         double speedMultiplier = 1.3;
                         double originalSpeed = Math.sqrt(b.velocity.x * b.velocity.x + b.velocity.y * b.velocity.y);
                         double angle = Math.atan2(b.velocity.y, b.velocity.x);
-                        
-                        // s1 往左偏 30 度，s2 往右偏 30 度
                         double angle1 = angle + Math.toRadians(30);
                         double angle2 = angle - Math.toRadians(30);
 
-                        // 讓小球繼承大球目前的線段，這樣它們才不會被判定為「沒線而死」
-                        s1.myLines = new ArrayList<>(b.myLines); 
-                        s2.myLines = new ArrayList<>(b.myLines);
-                        
+                        // 複製大球的線，並將 new Line 的目標重新綁定到新小球身上，線才不會斷
+                        s1.myLines = new ArrayList<>();
+                        s2.myLines = new ArrayList<>();
+                        for (Line oldLine : b.myLines) {
+                            s1.myLines.add(new Line(oldLine.startX, oldLine.startY, s1));
+                            s2.myLines.add(new Line(oldLine.startX, oldLine.startY, s2));
+                        }
+
                         s1.velocity.x = Math.cos(angle1) * originalSpeed * speedMultiplier;
                         s1.velocity.y = Math.sin(angle1) * originalSpeed * speedMultiplier;
-                        
                         s2.velocity.x = Math.cos(angle2) * originalSpeed * speedMultiplier;
                         s2.velocity.y = Math.sin(angle2) * originalSpeed * speedMultiplier;
-                                            
+
                         s1.isFreezed = s2.isFreezed = false;
-                        s1.hasEnteredGame = true; // 確保小球被視為已進入遊戲
-                        s2.hasEnteredGame = true;
-                        
+                        s1.hasEnteredGame = s2.hasEnteredGame = true;
+
                         toAdd.add(s1);
                         toAdd.add(s2);
+
+                    // ====================================================
+                    // 情況 B：如果是「分裂後的小球」吃到了「任何下一個道具」 -> 隨機變回大球！
+                    // ====================================================
+                    } else if (b.isTiny) {
+                        // 尋找場上另一顆同顏色且還活著的夥伴小球
+                        Ball partner = null;
+                        for (Ball other : balls) {
+                            if (other != b && other.color.equals(b.color) && !other.isDead && other.isTiny) {
+                                partner = other;
+                                break;
+                            }
+                        }
+
+                        // 隨機決定是讓吃到道具的這顆球(b)長大，還是讓它的夥伴(partner)長大
+                        Ball luckyBall = b;
+                        Ball absorbedBall = partner;
+                        if (partner != null && random.nextBoolean()) {
+                            luckyBall = partner;
+                            absorbedBall = b;
+                        }
+
+                        // 將兩顆小球都從世界移除
+                        toRemove.add(luckyBall);
+                        if (absorbedBall != null) {
+                            toRemove.add(absorbedBall);
+                        }
+
+                        // 建立重生的普通大球 (isTiny = false)，繼承幸運小球的位置與速度
+                        Ball bigBall = new Ball(luckyBall.pos.x, luckyBall.pos.y, luckyBall.color, false);
+                        bigBall.velocity = new Vector2D(luckyBall.velocity.x, luckyBall.velocity.y);
+                        bigBall.lives = luckyBall.lives;
+                        bigBall.isFreezed = false;
+                        bigBall.hasEnteredGame = true;
+                        
+                        // 變回大球後，記錄它最新吃到的這個道具類型，讓排行榜能顯示
+                        bigBall.currentItemType = item.type; 
+
+                        // 【完美線段合併】把原本兩顆小球身上的所有線，全部移回重生的大球身上，並重新修正 target 綁定
+                        bigBall.myLines = new ArrayList<>();
+                        for (Line oldLine : luckyBall.myLines) {
+                            bigBall.myLines.add(new Line(oldLine.startX, oldLine.startY, bigBall));
+                        }
+                        if (absorbedBall != null) {
+                            for (Line oldLine : absorbedBall.myLines) {
+                                bigBall.myLines.add(new Line(oldLine.startX, oldLine.startY, bigBall));
+                            }
+                        }
+
+                        toAdd.add(bigBall);
+
+                    // ====================================================
+                    // 情況 C：普通大球吃到普通道具
+                    // ====================================================
                     } else {
-                        // 執行加速或減速效果
+                        b.currentItemType = item.type; // 讓大球更新持有的道具類型
                         item.applyEffect(b);
                     }
-                    itemIter.remove(); // 道具被吃掉
+
+                    itemIter.remove(); // 刪除被吃掉的道具
                     break;
                 }
             }
         }
-        // 統一更新 Ball 清單，避免 ConcurrentModificationException
         balls.removeAll(toRemove);
         balls.addAll(toAdd);
     }
 
-    // 新增：處理小球融合機制
+    // --- 補回缺失的方法：處理分裂小球重新融合 ---
     private void checkTinyBallMerge() {
         ArrayList<Ball> toAdd = new ArrayList<>();
         ArrayList<Ball> toRemove = new ArrayList<>();
-        long now = System.currentTimeMillis();
 
         for (int i = 0; i < balls.size(); i++) {
             for (int j = i + 1; j < balls.size(); j++) {
                 Ball b1 = balls.get(i);
                 Ball b2 = balls.get(j);
 
-                // 融合條件：都是小球、同顏色、皆已過冷卻時間
+                if (b1.isDead || b2.isDead) continue;
+
                 if (b1.isTiny && b2.isTiny && b1.color.equals(b2.color)) {
+                    long now = System.currentTimeMillis();
+                    // 注意：因為是以現實時間（System.currentTimeMillis）計算冷卻，所以融合不受遊戲倍率影響，保持 3 秒
                     if (now - b1.splitTime > Ball.COOLDOWN && now - b2.splitTime > Ball.COOLDOWN) {
-                        double dx = b1.pos.x - b2.pos.x;
-                        double dy = b1.pos.y - b2.pos.y;
+                        double dx = b2.pos.x - b1.pos.x;
+                        double dy = b2.pos.y - b1.pos.y;
                         double dist = Math.sqrt(dx * dx + dy * dy);
 
                         if (dist < b1.radius + b2.radius) {
                             toRemove.add(b1);
                             toRemove.add(b2);
                             
-                            // 融合回原本的大球
                             Ball merged = new Ball(b1.pos.x, b1.pos.y, b1.color, false);
-                            merged.myLines = new ArrayList<>(b1.myLines); // 繼承其中一顆小球的線段
-                            merged.velocity = b1.velocity; // 繼承動能
+                            merged.myLines = new ArrayList<>(b1.myLines); 
+                            merged.velocity = b1.velocity; 
                             merged.isFreezed = false;
                             merged.hasEnteredGame = true;
+                            merged.lives = Math.max(b1.lives, b2.lives); // 融合後繼承較高生命
                             
                             toAdd.add(merged);
                         }
@@ -215,9 +276,124 @@ public class GameManager {
         balls.addAll(toAdd);
     }
 
+    // --- 新增方法：計算分層磁力物理邏輯 ---
+    private void applyItemMagnetForce() {
+        double maxRange = 120.0; // 3顆大球直徑 (3 * 40 = 120 像素)
+
+        for (Item item : items) {
+            for (Ball b : balls) {
+                if (b.isDead || b.isFreezed)
+                    continue;
+
+                // 計算球與道具之間的距離向量
+                double dx = item.pos.x - b.pos.x;
+                double dy = item.pos.y - b.pos.y;
+                double dist = Math.sqrt(dx * dx + dy * dy);
+
+                // 只影響範圍 120 像素內的球
+                if (dist > 0 && dist <= maxRange) {
+                    // 計算吸引力的單位方向向量
+                    double nx = dx / dist;
+                    double ny = dy / dist;
+
+                    double force = 0.0;
+
+                    // 分層吸引力判定
+                    if (dist <= 40.0) {
+                        force = 0.50; // 1單位距離：吸引力最大
+                    } else if (dist <= 80.0) {
+                        force = 0.35; // 2單位距離：吸引力其次
+                    } else {
+                        force = 0.20; // 3單位距離：吸引力最後
+                    }
+
+                    // 將吸引力直接加到球的速度向量上，使其往道具靠攏
+                    b.velocity.x += nx * force;
+                    b.velocity.y += ny * force;
+                }
+            }
+        }
+    }
+
+    // 新增：在圓形競技場內隨機生成道具
+    private void spawnRandomItem() {
+        double angle = random.nextDouble() * Math.PI * 2;
+        // 讓道具生成在距離邊界稍遠一點的地方，避免剛生成就在牆壁外
+        double r = Math.sqrt(random.nextDouble()) * (arenaRadius - 50);
+        double x = arenaCenterX + r * Math.cos(angle);
+        double y = arenaCenterY + r * Math.sin(angle);
+
+        // 隨機決定道具類型 (2:加速, 4:減速, 5:分裂, 6:生命)
+        int[] types = { 2, 4, 5, 6 };
+        int type = types[random.nextInt(types.length)];
+
+        // 根據類型建立對應物件
+        if (type == 2)
+            items.add(new ItemSpeedUp(x, y));
+        else if (type == 4)
+            items.add(new ItemSpeedDown(x, y));
+        else if (type == 6)
+            items.add(new ItemLife(x, y)); // 生命道具
+        else
+            items.add(new Item(x, y, 5)); // 分裂道具
+    }
+
+    // --- 完美修正版：一鍵隨機生成指定數量的純懸空球，碰牆才激活攻擊與存活判定 ---
+    public void spawnBatchRandomBalls(int count) {
+        if (currentState != GameState.SETUP) return;
+
+        // 1. 先清空目前場上的球與 pendingBall
+        this.balls.clear();
+        this.pendingBall = null;
+        Ball.num = 0; // 重置球的 ID 計數器
+
+        // 2. 依序生成指定數量的球
+        for (int i = 0; i < count; i++) {
+            // 隨機在圓形競技場內挑選球的位置（留點內縮邊距避免直接重疊在牆上）
+            double angle = random.nextDouble() * Math.PI * 2;
+            double r = Math.sqrt(random.nextDouble()) * (arenaRadius - 60); 
+            double x = arenaCenterX + r * Math.cos(angle);
+            double y = arenaCenterY + r * Math.sin(angle);
+
+            // 取得目前還沒被使用的顏色
+            Color assignedColor = getAvailableColor();
+            
+            // 建立標準大球 (isTiny = false)
+            Ball b = new Ball(x, y, assignedColor, false);
+
+            // 隨機決定移動方向與速度 (給予 2.5 ~ 5.0 之間的隨機速度)
+            double moveAngle = random.nextDouble() * Math.PI * 2;
+            double speed = 2.5 + random.nextDouble() * 2.5;
+            b.velocity.x = Math.cos(moveAngle) * speed;
+            b.velocity.y = Math.sin(moveAngle) * speed;
+
+            // ====================================================
+            // 【核心修正】完美符合你原本的機制：
+            // 1. 解凍球體 (isFreezed = false)，讓它一按 Start 就能朝隨機方向飛
+            // 2. hasEnteredGame 設為 false！碰牆前系統不會檢查它的線，也不會抹殺它
+            // 3. 不加任何初始線，保持乾淨懸空
+            // ====================================================
+            b.isFreezed = false;
+            b.hasEnteredGame = false; // 關鍵：第一次碰牆前是安全的！
+            b.myLines.clear();        // 確保沒有任何線
+
+            if (currentMode == GameMode.ITEM_MODE) {
+                b.lives = 1; // 道具模式下初始 1 條命
+            } else {
+                b.lives = 1;
+            }
+
+            // 加進球體清單
+            this.balls.add(b);
+        }
+        
+        System.out.println("成功隨機生成 " + count + " 顆純懸空球。第一次碰牆後將會激活拉線與攻擊能力！");
+    }
+
     private void checkWallCollisions() {
         for (Ball b : balls) {
-            if (b.isDead) continue; 
+            if (b.isDead)
+                continue;
 
             double dx = b.pos.x - arenaCenterX;
             double dy = b.pos.y - arenaCenterY;
@@ -237,8 +413,8 @@ public class GameManager {
                 double wallX = arenaCenterX + nx * arenaRadius;
                 double wallY = arenaCenterY + ny * arenaRadius;
                 b.myLines.add(new Line(wallX, wallY, b));
-                
-                b.hasEnteredGame = true; 
+
+                b.hasEnteredGame = true;
 
                 // --- 新增：播放撞牆音效 ---
                 SoundManager.playHit();
@@ -252,12 +428,14 @@ public class GameManager {
                 Ball b1 = balls.get(i);
                 Ball b2 = balls.get(j);
 
-                if (b1.isDead || b2.isDead) continue; 
-                
+                if (b1.isDead || b2.isDead)
+                    continue;
+
                 // 新增：如果兩顆球正處於可融合狀態，不觸發物理碰撞
                 if (b1.isTiny && b2.isTiny && b1.color.equals(b2.color)) {
                     long now = System.currentTimeMillis();
-                    if (now - b1.splitTime > Ball.COOLDOWN) continue; 
+                    if (now - b1.splitTime > Ball.COOLDOWN)
+                        continue;
                 }
 
                 double dx = b2.pos.x - b1.pos.x;
@@ -291,21 +469,30 @@ public class GameManager {
 
     private void checkLineCollisions() {
         for (Ball b : balls) {
-            if (b.isDead || b.myLines.isEmpty()) continue; 
-            
+            if (b.isDead || b.myLines.isEmpty())
+                continue;
+
             for (Ball otherBall : balls) {
                 // 原本條件：if (otherBall.isDead || b == otherBall) continue;
-                
+
                 // 修正條件：如果是死球、是自己、或是「同顏色的球」，則不消對方的線
                 if (otherBall.isDead || b == otherBall || b.color.equals(otherBall.color)) {
-                    continue; 
+                    continue;
                 }
                 Iterator<Line> iterator = otherBall.myLines.iterator();
                 while (iterator.hasNext()) {
                     Line line = iterator.next();
-                    double distToLine = pointToSegmentDistance(b.pos.x, b.pos.y, line.startX, line.startY, otherBall.pos.x, otherBall.pos.y);
-                        
-                    if (distToLine <= b.radius) iterator.remove();
+                    double distToLine = pointToSegmentDistance(b.pos.x, b.pos.y, line.startX, line.startY,
+                            otherBall.pos.x, otherBall.pos.y);
+
+                    if (distToLine <= b.radius) {
+                        iterator.remove(); // 這裡將別人的線切斷了
+
+                        // ====================================================
+                        // 【新增這行】每次線斷掉的時候，播放「唰」的飛刀割裂音效
+                        SoundManager.playKnife();
+                        // ====================================================
+                    }
                 }
             }
         }
@@ -317,38 +504,40 @@ public class GameManager {
         boolean someoneEntered = false;
 
         for (Ball b : balls) {
-            if (b.isDead) continue;
+            if (b.isDead)
+                continue;
 
             // 沒線時的生命消耗與復活邏輯
             if (b.hasEnteredGame && b.myLines.isEmpty()) {
                 if (b.lives > 1) {
-                    b.lives--; 
-                    double wallX = arenaCenterX; 
+                    b.lives--;
+                    double wallX = arenaCenterX;
                     double wallY = arenaCenterY;
                     b.myLines.add(new Line(wallX, wallY, b));
-                    b.velocity.x *= -0.8; 
+                    b.velocity.x *= -0.8;
                     b.velocity.y *= -0.8;
                     System.out.println("球 " + b.id + " 消耗生命復活！剩餘生命: " + b.lives);
-                    
+
                     // 復活成功，這種類型依然活著，記錄顏色
                     if (!aliveColors.contains(b.color)) {
                         aliveColors.add(b.color);
                     }
                 } else {
                     b.isDead = true;
-                    b.deathTick = playTimeTicks; 
+                    b.deathTick = playTimeTicks;
                 }
             } else {
                 // 球體正常存活，記錄顏色（若清單中沒有就加進去）
                 if (!aliveColors.contains(b.color)) {
                     aliveColors.add(b.color);
                 }
-                if (b.hasEnteredGame) someoneEntered = true; 
+                if (b.hasEnteredGame)
+                    someoneEntered = true;
             }
-     }
-    
+        }
+
         // --- 關鍵修正：當總球數大於等於 2，且有人碰過牆壁，但活著的「顏色種類」小於等於 1 時結束 ---
-        if (balls.size() >= 2 && someoneEntered && aliveColors.size() <= 1) { 
+        if (balls.size() >= 2 && someoneEntered && aliveColors.size() <= 1) {
             currentState = GameState.GAME_OVER;
         }
 
@@ -357,12 +546,20 @@ public class GameManager {
     private double pointToSegmentDistance(double px, double py, double x1, double y1, double x2, double y2) {
         double A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
         double dot = A * C + B * D, len_sq = C * C + D * D, param = -1;
-        if (len_sq != 0) param = dot / len_sq;
+        if (len_sq != 0)
+            param = dot / len_sq;
 
         double xx, yy;
-        if (param < 0) { xx = x1; yy = y1; } 
-        else if (param > 1) { xx = x2; yy = y2; } 
-        else { xx = x1 + param * C; yy = y1 + param * D; }
+        if (param < 0) {
+            xx = x1;
+            yy = y1;
+        } else if (param > 1) {
+            xx = x2;
+            yy = y2;
+        } else {
+            xx = x1 + param * C;
+            yy = y1 + param * D;
+        }
 
         double dx = px - xx, dy = py - yy;
         return Math.sqrt(dx * dx + dy * dy);

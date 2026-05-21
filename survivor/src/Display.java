@@ -1,3 +1,4 @@
+
 // === src/Display.java ===
 import javax.swing.JPanel;
 import javax.swing.JOptionPane;
@@ -23,9 +24,13 @@ public class Display extends JPanel implements ActionListener {
     private int currentMouseX = 0;
     private int currentMouseY = 0;
 
+    // --- 新增：倍率控制與動態箭頭計時器 ---
+    public static double currentSpeedMultiplier = 1.0;
+    private int animationTick = 0; // 用於控制 >>> 箭頭的動態閃爍
+
     public Display(int width, int height) {
-        this.setBackground(Color.BLACK); 
-        this.setFocusable(true); 
+        this.setBackground(Color.BLACK);
+        this.setFocusable(true);
 
         this.setPreferredSize(new Dimension(width, height));
 
@@ -39,7 +44,7 @@ public class Display extends JPanel implements ActionListener {
         int btnX = (int) (width * 0.83);
         int btnY = (int) (height * 0.55);
         int btnYOffset = btnHeight + 20;
-        
+
         btnMode = new Btn(btnX, btnY, btnWidth, btnHeight, "Classic");
         btnStart = new Btn(btnX, btnY + btnYOffset, btnWidth, btnHeight, "Start");
         btnRule = new Btn(btnX, btnY + btnYOffset * 2, btnWidth, btnHeight, "Rule");
@@ -57,8 +62,8 @@ public class Display extends JPanel implements ActionListener {
             public void mousePressed(MouseEvent e) {
                 int mx = e.getX();
                 int my = e.getY();
-                
-                if (e.getButton() == MouseEvent.BUTTON1) { 
+
+                if (e.getButton() == MouseEvent.BUTTON1) {
                     if (btnMode.contains(mx, my)) {
                         toggleGameMode();
                     } else if (btnStart.contains(mx, my)) {
@@ -68,47 +73,50 @@ public class Display extends JPanel implements ActionListener {
                     } else if (btnExit.contains(mx, my)) {
                         System.exit(0);
                     } else {
-                        if (gameManager.currentState != GameState.SETUP) return; 
+                        if (gameManager.currentState != GameState.SETUP)
+                            return;
 
                         if (gameManager.pendingBall == null) {
-                            if (gameManager.balls.size() >= 6) return; 
+                            if (gameManager.balls.size() >= 6)
+                                return;
                             if (gameManager.isInsideArena(mx, my)) {
                                 Color newColor = gameManager.getAvailableColor();
                                 Ball newBall = new Ball(mx, my, newColor, false);
                                 gameManager.balls.add(newBall);
-                                gameManager.pendingBall = newBall; 
+                                gameManager.pendingBall = newBall;
                             }
                         } else {
                             Ball b = gameManager.pendingBall;
                             double dx = mx - b.pos.x;
                             double dy = my - b.pos.y;
-                            
+
                             double length = Math.sqrt(dx * dx + dy * dy);
                             if (length > 0) {
-                                double speed = 5.0; 
+                                double speed = 5.0;
                                 b.velocity.x = (dx / length) * speed;
                                 b.velocity.y = (dy / length) * speed;
                             } else {
                                 b.velocity.x = 0;
                                 b.velocity.y = -5;
                             }
-                            
-                            b.isFreezed = false; 
-                            gameManager.pendingBall = null; 
+
+                            b.isFreezed = false;
+                            gameManager.pendingBall = null;
                         }
                     }
-                } else if (e.getButton() == MouseEvent.BUTTON3) { 
+                } else if (e.getButton() == MouseEvent.BUTTON3) {
                     if (gameManager.currentState == GameState.SETUP) {
                         boolean ballRemoved = false;
                         for (int i = gameManager.balls.size() - 1; i >= 0; i--) {
                             Ball b = gameManager.balls.get(i);
                             double dx = mx - b.pos.x;
                             double dy = my - b.pos.y;
-                            if (Math.sqrt(dx * dx + dy * dy) <= b.radius + 5) { 
-                                if (b == gameManager.pendingBall) gameManager.pendingBall = null; 
+                            if (Math.sqrt(dx * dx + dy * dy) <= b.radius + 5) {
+                                if (b == gameManager.pendingBall)
+                                    gameManager.pendingBall = null;
                                 gameManager.balls.remove(i);
                                 ballRemoved = true;
-                                break; 
+                                break;
                             }
                         }
                         if (!ballRemoved && gameManager.pendingBall != null) {
@@ -130,6 +138,7 @@ public class Display extends JPanel implements ActionListener {
                 btnRule.isHovered = btnRule.contains(currentMouseX, currentMouseY);
                 btnExit.isHovered = btnExit.contains(currentMouseX, currentMouseY);
             }
+
             @Override
             public void mouseDragged(MouseEvent e) {
                 currentMouseX = e.getX();
@@ -137,15 +146,59 @@ public class Display extends JPanel implements ActionListener {
             }
         });
 
+        //
         this.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_SPACE) toggleGameMode();
-                else if (e.getKeyCode() == KeyEvent.VK_ENTER) handleStartRestart();
-                else if (e.getKeyCode() == KeyEvent.VK_R) showRules();
-                else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) System.exit(0);
+                if (e.getKeyCode() == KeyEvent.VK_SPACE)
+                    toggleGameMode();
+                else if (e.getKeyCode() == KeyEvent.VK_ENTER)
+                    // --- 修改處：如果場上已經有隨機生成的球，按 ENTER 直接開打，不要重置它們 ---
+                    if (gameManager.currentState == GameState.SETUP && !gameManager.balls.isEmpty()) {
+                        gameManager.currentState = GameState.PLAYING;
+                    } else {
+                        // 如果場上沒球，或者已經在遊戲中，才執行原本的 Start/Restart 切換邏輯
+                        handleStartRestart();
+                    }
+                else if (e.getKeyCode() == KeyEvent.VK_R)
+                    showRules();
+                else if (e.getKeyCode() == KeyEvent.VK_ESCAPE)
+                    System.exit(0);
+
+                // --- 新增：按下鍵盤右鍵，開啟所有球的加速 ---
+                else if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+                    currentSpeedMultiplier += 0.5;
+                    if (currentSpeedMultiplier > 3.0) {
+                        currentSpeedMultiplier = 3.0;
+                    }
+                }
+                // --- 修改處：按左鍵減 0.5 倍速，最低 1.0 ---
+                else if (e.getKeyCode() == KeyEvent.VK_LEFT) {
+                    currentSpeedMultiplier -= 0.5;
+                    if (currentSpeedMultiplier < 1.0) {
+                        currentSpeedMultiplier = 1.0;
+                    }
+                }
+                // --- 修改處：新增按鍵 2 ~ 6 隨機生成球數與方向 ---
+                else if (gameManager.currentState == GameState.SETUP) {
+                    int keyCode = e.getKeyCode();
+
+                    // 支援主鍵盤數字鍵 (VK_2 到 VK_6)
+                    if (keyCode >= KeyEvent.VK_2 && keyCode <= KeyEvent.VK_6) {
+                        int ballCount = keyCode - KeyEvent.VK_0; // 轉換為整數 2~6
+                        gameManager.spawnBatchRandomBalls(ballCount);
+                        repaint();
+                    }
+                    // 支援右側九宮格數字鍵 (VK_NUMPAD2 到 VK_NUMPAD6)
+                    else if (keyCode >= KeyEvent.VK_NUMPAD2 && keyCode <= KeyEvent.VK_NUMPAD6) {
+                        int ballCount = keyCode - KeyEvent.VK_NUMPAD0; // 轉換為整數 2~6
+                        gameManager.spawnBatchRandomBalls(ballCount);
+                        repaint();
+                    }
+                }
             }
         });
+
     }
 
     private void handleStartRestart() {
@@ -154,40 +207,80 @@ public class Display extends JPanel implements ActionListener {
             if (gameManager.balls.size() >= 2) {
                 gameManager.currentState = GameState.PLAYING;
             } else {
-                JOptionPane.showMessageDialog(this, 
-                    "Please add at least 2 balls to start!", 
-                    "Not Enough Balls", 
-                    JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this,
+                        "Please add at least 2 balls to start!",
+                        "Not Enough Balls",
+                        JOptionPane.WARNING_MESSAGE);
             }
         } else {
             gameManager.resetGame();
+            currentSpeedMultiplier = 1.0; // 重置倍率
         }
     }
 
     private void toggleGameMode() {
+        if (gameManager.currentState != GameState.SETUP) {
+            return;
+        }
+
         if (gameManager.currentMode == GameMode.CLASSIC) {
             gameManager.currentMode = GameMode.ITEM_MODE;
-            btnMode.text = "Item"; 
+            btnMode.text = "Item";
         } else {
             gameManager.currentMode = GameMode.CLASSIC;
             btnMode.text = "Classic";
         }
     }
-    
+
     private void showRules() {
-        String rules = "Game Rules:\n" +
-                "1. Use left mouse button to add a ball or set direction.\n" +
-                "2. Use right mouse button to remove a ball.\n" +
-                "3. Press SPACE to switch game mode.\n" +
-                "4. Press ENTER to start or restart the game.\n" +
-                "5. Avoid colliding with other balls and stay within the arena.";
-        JOptionPane.showMessageDialog(this, rules, "Game Rules", JOptionPane.INFORMATION_MESSAGE);
+        String page1_modes =
+                "🏆 1. 經典模式 (Classic) 🏆\n" +
+                "• 獲勝條件：割斷對手的線！活到最後的球獲勝。\n" +
+                "• 初始機制：球剛生成時皆為安全狀態。\n" +
+                "            必須在「第一次撞牆」後才會有攻擊能力和生命(線)！\n" +
+                "• 淘汰機制：當球體身上的線段數歸零時，該顏色立即淘汰。\n\n" +
+                
+                "🎁 2. 道具模式 (Item) 🎁\n" +
+                "• 獲勝條件：割斷對手的線！活到最後的球獲勝。\n" +
+                "• 道具生成：每 1.5 秒隨機掉落道具\n" +
+                "• 初始機制：同經典模式\n" +
+                "• 黑洞磁力：道具自帶重力圈，會將半徑 120px 內的球高速吸向中心。\n" +
+                "• 道具效果：\n" +
+                "  ⚡ 閃電：大幅增加球體的移動速度。\n" +
+                "  ❄️ 冰凍：大幅降低球體速度，使其短暫減速。\n" +
+                "  ❤️ 生命：生命+1。復活時從中間接線\n" +
+                "  🧬 分裂：大球分裂為 2 顆快速小球，完整複製並繼承所有線段。\n" +
+                "  道具非累加!!!\n" +
+                "【1/2】";
+
+        JOptionPane.showMessageDialog(this, page1_modes, "遊戲規則與機制 (第 1 頁 / 共 2 頁)", JOptionPane.INFORMATION_MESSAGE);
+
+        String page2_controls =
+                "🕹️ 3. 操作指南 (Control) 🕹️\n" +
+                "【滑鼠操作 — 準備階段 (SETUP)】\n" +
+                "• 左鍵點擊空地：新增球與指定方向\n" +
+                "• 右鍵點擊球體：刪除該顆球\n\n" +
+                "【鍵盤快捷鍵】\n" +
+                "• 空白鍵  ：切換遊戲模式(CLASSIC / ITEM)\n" +
+                "• ENTER   ：開始遊戲 / 重新重置開局\n" +
+                "• 2 ~ 6 鍵：一鍵隨機生成對應球數與噴射方向\n" +
+                "• R 鍵：規則說明\n" +
+                "• 方向鍵▶：遊戲時間流速加快 (+0.5)，最高 x3.0\n" +
+                "• 方向鍵◀：遊戲時間流速減慢 (-0.5)，最低 x1.0\n" +
+                "• ESC 鍵  ：直接強行關閉並退出遊戲\n\n" +
+                "【2/2】";
+
+        JOptionPane.showMessageDialog(this, page2_controls, "按鍵與操作設定 (第 2 頁 / 共 2 頁)", JOptionPane.INFORMATION_MESSAGE);
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        gameManager.update(); 
-        repaint(); 
+        gameManager.update();
+
+        // --- 修改處：讓動畫計時器累加時也乘以倍率，使動畫跟隨時間流速一起變快 ---
+        animationTick += Display.currentSpeedMultiplier;
+
+        repaint();
     }
 
     @Override
@@ -200,16 +293,53 @@ public class Display extends JPanel implements ActionListener {
                 (int) (gameManager.arenaCenterY - gameManager.arenaRadius),
                 (int) (gameManager.arenaRadius * 2), (int) (gameManager.arenaRadius * 2));
 
+        if (gameManager.currentMode == GameMode.ITEM_MODE && gameManager.items != null) {
+            for (Item item : gameManager.items) {
+                if (!item.isAvailable)
+                    continue;
+
+                // ---- 調整點 1：縮的速度加快 ----
+                // 將 animationTick 乘數從 2 加大到 4，讓波紋向內收縮的速度變為原本的 2 倍快！
+                int baseOffset = (animationTick * 4) % 120;
+
+                // ---- 調整點 2：用兩圈（前後錯開 60 像素） ----
+                int radius1 = 120 - baseOffset; // 第一圈（外圈）
+                int radius2 = 120 - ((baseOffset + 60) % 120); // 第二圈（內圈，錯開半個週期）
+
+                // ---- 調整點 3：顏色再亮一點 ----
+                // 將最後一個參數（不透明度 Alpha）從 30 調高到 100，光圈視覺上會亮非常多！
+                g.setColor(new Color(0, 191, 255, 100)); // 改用亮深天藍 (DeepSkyBlue)，亮度更強
+
+                // 畫出第一圈
+                if (radius1 > 0) {
+                    g.drawOval((int) item.pos.x - radius1, (int) item.pos.y - radius1,
+                            radius1 * 2, radius1 * 2);
+                }
+
+                // 畫出第二圈
+                if (radius2 > 0) {
+                    g.drawOval((int) item.pos.x - radius2, (int) item.pos.y - radius2,
+                            radius2 * 2, radius2 * 2);
+                }
+
+                // 靜態的最大邊界提示線（也稍微調亮一點點，Alpha 設為 40）
+                g.setColor(new Color(100, 100, 100, 40));
+                g.drawOval((int) item.pos.x - 120, (int) item.pos.y - 120, 240, 240);
+            }
+        }
+
         // 2. 畫出所有球與線
         if (gameManager.balls != null) {
             for (Ball b : gameManager.balls) {
-                if (b.isDead) continue; 
+                if (b.isDead)
+                    continue;
 
                 if (b.myLines != null) {
-                    for (Line l : b.myLines) l.draw(g);
+                    for (Line l : b.myLines)
+                        l.draw(g);
                 }
                 b.draw(g);
-                
+
                 // 畫出已經設定好方向的箭頭
                 if (gameManager.currentState == GameState.SETUP && b != gameManager.pendingBall) {
                     drawVelocityArrow(g, b);
@@ -220,9 +350,9 @@ public class Display extends JPanel implements ActionListener {
         // 畫出正在拖曳的灰色瞄準線
         if (gameManager.pendingBall != null) {
             g.setColor(Color.GRAY);
-            g.drawLine((int)gameManager.pendingBall.pos.x, 
-                       (int)gameManager.pendingBall.pos.y, 
-                       currentMouseX, currentMouseY);
+            g.drawLine((int) gameManager.pendingBall.pos.x,
+                    (int) gameManager.pendingBall.pos.y,
+                    currentMouseX, currentMouseY);
         }
 
         // 3. 畫出道具
@@ -234,46 +364,47 @@ public class Display extends JPanel implements ActionListener {
 
         drawUI(g);
     }
-    
+
     // 畫出方向箭頭
     private void drawVelocityArrow(Graphics g, Ball b) {
-        if (b.velocity.x == 0 && b.velocity.y == 0) return;
+        if (b.velocity.x == 0 && b.velocity.y == 0)
+            return;
 
         double len = Math.sqrt(b.velocity.x * b.velocity.x + b.velocity.y * b.velocity.y);
         double nx = b.velocity.x / len;
         double ny = b.velocity.y / len;
 
-        int startX = (int)b.pos.x;
-        int startY = (int)b.pos.y;
-        
-        int lineLen = 35; 
-        int endX = startX + (int)(nx * lineLen);
-        int endY = startY + (int)(ny * lineLen);
+        int startX = (int) b.pos.x;
+        int startY = (int) b.pos.y;
 
-        g.setColor(b.color); 
+        int lineLen = 35;
+        int endX = startX + (int) (nx * lineLen);
+        int endY = startY + (int) (ny * lineLen);
+
+        g.setColor(b.color);
         g.drawLine(startX, startY, endX, endY);
 
         int arrowSize = 6;
-        double px = -ny; 
-        double py = nx;  
+        double px = -ny;
+        double py = nx;
 
         int[] xPoints = {
-            endX + (int)(nx * arrowSize),
-            endX - (int)(nx * arrowSize) + (int)(px * arrowSize),
-            endX - (int)(nx * arrowSize) - (int)(px * arrowSize)
+                endX + (int) (nx * arrowSize),
+                endX - (int) (nx * arrowSize) + (int) (px * arrowSize),
+                endX - (int) (nx * arrowSize) - (int) (px * arrowSize)
         };
         int[] yPoints = {
-            endY + (int)(ny * arrowSize),
-            endY - (int)(ny * arrowSize) + (int)(py * arrowSize),
-            endY - (int)(ny * arrowSize) - (int)(py * arrowSize)
+                endY + (int) (ny * arrowSize),
+                endY - (int) (ny * arrowSize) + (int) (py * arrowSize),
+                endY - (int) (ny * arrowSize) - (int) (py * arrowSize)
         };
         g.fillPolygon(xPoints, yPoints, 3);
     }
 
     private void drawUI(Graphics g) {
         // 排行榜
-        Rank.drawRanking(g, gameManager.balls); 
-    
+        Rank.drawRanking(g, gameManager.balls, gameManager.currentMode);
+
         // 動態改變 Start/Restart 文字
         if (btnStart != null) {
             if (gameManager.currentState == GameState.SETUP) {
@@ -284,16 +415,65 @@ public class Display extends JPanel implements ActionListener {
         }
 
         // 按鈕
-        if(btnMode != null) btnMode.draw(g);
-        if(btnStart != null) btnStart.draw(g);
-        if(btnRule != null) btnRule.draw(g);
-        if(btnExit != null) btnExit.draw(g);
-        
+        if (btnMode != null)
+            btnMode.draw(g);
+        if (btnStart != null)
+            btnStart.draw(g);
+        if (btnRule != null)
+            btnRule.draw(g);
+        if (btnExit != null)
+            btnExit.draw(g);
+
+        // --- 修改處：在右上角繪製動態倍率與箭頭指標 ---
+        drawSpeedIndicator(g);
+
         // 遊戲結束文字
         if (gameManager.currentState == GameState.GAME_OVER) {
             g.setColor(Color.WHITE);
             g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 50));
-            g.drawString("GAME OVER", (int)gameManager.arenaCenterX - 150, (int)gameManager.arenaCenterY);
+            g.drawString("GAME OVER", (int) gameManager.arenaCenterX - 150, (int) gameManager.arenaCenterY);
+        }
+    }
+
+    // --- 新增方法：繪製右上角動態倍速特效 ---
+    private void drawSpeedIndicator(Graphics g) {
+        if (gameManager.currentState == GameState.GAME_OVER || currentSpeedMultiplier <= 1.0) {
+            return;
+        }
+
+        int uiX = getWidth() - 250; // 右上角起點 X
+        int uiY = 50; // 右上角起點 Y
+
+        g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 30));
+
+        // 1. 根據是否加速決定顏色 (原速白色，加速用亮綠色/青色突出)
+        if (currentSpeedMultiplier > 1.0) {
+            g.setColor(Color.CYAN);
+        } else {
+            g.setColor(Color.WHITE);
+        }
+
+        // 2. 畫出文字，例如 "x1.5"、"x2.0"
+        String speedStr = "x" + currentSpeedMultiplier;
+        g.drawString(speedStr, uiX, uiY);
+
+        // 3. 畫出三個動態流水燈箭頭 >>>
+        int arrowStartX = uiX + 85;
+        // 【優化點】原本是 animationTick / 10，改成 / 4 讓切換速度縮短到原本的 2.5 倍快！
+        int step = (animationTick / 4) % 4;
+
+        for (int i = 0; i < 3; i++) {
+            // 如果是大於 1 倍速，讓箭頭有亮度的流動感；若為 1.0 倍則灰暗不閃爍
+            if (currentSpeedMultiplier > 1.0) {
+                if (i == step - 1 || (step == 0 && i == 2)) {
+                    g.setColor(Color.CYAN.brighter());
+                } else {
+                    g.setColor(Color.CYAN.darker().darker());
+                }
+            } else {
+                g.setColor(Color.DARK_GRAY); // 原速時顯示暗色靜態箭頭
+            }
+            g.drawString(">", arrowStartX + (i * 20), uiY);
         }
     }
 }

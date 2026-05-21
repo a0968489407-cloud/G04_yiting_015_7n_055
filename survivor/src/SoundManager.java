@@ -10,39 +10,46 @@ public class SoundManager {
     private static Clip speedDownClip;
     private static Clip splitClip;
     private static Clip extraLifeClip;
+    private static Clip knifeClip;
 
     // 初始化並預先載入音效
     public static void init() {
         try {
             // 1. 載入撞牆音效 (Type 1)
-            File soundFile = new File("survivor/src/pool ball sound.wav");
+            File soundFile = new File("survivor/sound effect/pool ball sound.wav");
             AudioInputStream audioIn = AudioSystem.getAudioInputStream(soundFile);
             hitClip = AudioSystem.getClip();
             hitClip.open(audioIn);
 
             // 2. 載入加速道具音效 (Type 2)
-            File speedUpFile = new File("survivor/src/speedup.wav"); 
+            File speedUpFile = new File("survivor/sound effect/speedup.wav"); 
             AudioInputStream speedUpIn = AudioSystem.getAudioInputStream(speedUpFile);
             speedUpClip = AudioSystem.getClip();
             speedUpClip.open(speedUpIn);
 
             // 3. 載入減速道具音效 (Type 3)
-            File speedDownFile = new File("survivor/src/speedDown.wav"); 
+            File speedDownFile = new File("survivor/sound effect/speedDown.wav"); 
             AudioInputStream speedDownIn = AudioSystem.getAudioInputStream(speedDownFile);
             speedDownClip = AudioSystem.getClip();
             speedDownClip.open(speedDownIn);
 
             // 4. 載入分裂道具音效 (Type 4)
-            File splitFile = new File("survivor/src/split.wav"); 
+            File splitFile = new File("survivor/sound effect/split.wav"); 
             AudioInputStream splitIn = AudioSystem.getAudioInputStream(splitFile);
             splitClip = AudioSystem.getClip();
             splitClip.open(splitIn);
 
             // 5. 載入加命道具音效 (Type 5)
-            File extraLifeFile = new File("survivor/src/extralLife.wav"); 
+            File extraLifeFile = new File("survivor/sound effect/extralLife.wav"); 
             AudioInputStream extraLifeIn = AudioSystem.getAudioInputStream(extraLifeFile);
             extraLifeClip = AudioSystem.getClip();
             extraLifeClip.open(extraLifeIn);
+
+            // 6. 載入刀子音效 (Type 6)
+            File knifeFile = new File("survivor/sound effect/knife sound.wav"); 
+            AudioInputStream knifeIn = AudioSystem.getAudioInputStream(knifeFile);
+            knifeClip = AudioSystem.getClip();
+            knifeClip.open(knifeIn);
 
         } catch (Exception e) {
             System.out.println("音效載入失敗，請檢查路徑與檔案格式 (.wav)。錯誤：" + e.getMessage());
@@ -86,6 +93,11 @@ public class SoundManager {
     // 播放加命音效 (Type 5)
     public static void playExtraLife() {
         playClip(extraLifeClip);
+    }
+
+    // 播放刀子音效 (Type 6)
+    public static void playKnife() {
+        playClip(knifeClip);
     }
 
     // 提取通用的播放邏輯，避免重複寫 Thread
