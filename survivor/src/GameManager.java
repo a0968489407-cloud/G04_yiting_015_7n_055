@@ -106,7 +106,7 @@ public class GameManager {
         }
     }
 
-    // --- 補回缺失的方法：處理球與道具的碰撞與分裂 ---
+    // --- 處理球與道具的碰撞、分裂、以及小球隨機選一顆變回大球 ---
     private void checkItemCollisions() {
         ArrayList<Ball> toAdd = new ArrayList<>();
         ArrayList<Ball> toRemove = new ArrayList<>();
@@ -122,23 +122,24 @@ public class GameManager {
                 double dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < b.radius + item.radius) {
+                    // 播放道具音效
                     if (item.type == 2) SoundManager.playSpeedUp();
                     else if (item.type == 4) SoundManager.playSpeedDown();
                     else if (item.type == 5) SoundManager.playSplit();
                     else SoundManager.playExtraLife();
 
-                    b.currentItemType = item.type; // 記錄球目前擁有的道具類型
-
-                    if (item.type == 5 && !b.isTiny) { 
+                    // ====================================================
+                    // 情況 A：如果是大球吃到了「分裂道具」 (Type 5)
+                    // ====================================================
+                    if (item.type == 5 && !b.isTiny) {
                         toRemove.add(b);
+
                         Ball s1 = new Ball(b.pos.x + 5, b.pos.y, b.color, true);
                         Ball s2 = new Ball(b.pos.x - 5, b.pos.y, b.color, true);
-                        s1.lives = b.lives; 
+                        s1.lives = b.lives;
                         s2.lives = b.lives;
-
-                        // ====================================================
-                        // 【修復 1】確保新誕生的小球在排行榜能認出自己是分裂狀態 (Cell 道具為 type 5)
-                        // ====================================================
+                        
+                        // 確保分裂出的小球在 Rank 能亮起細胞圖示
                         s1.currentItemType = 5;
                         s2.currentItemType = 5;
 
@@ -148,33 +149,84 @@ public class GameManager {
                         double angle1 = angle + Math.toRadians(30);
                         double angle2 = angle - Math.toRadians(30);
 
-                        // ====================================================
-                        // 【修復 2】複製大球的線，並將線的目標綁定到新小球身上，線才不會斷
-                        // ====================================================
+                        // 複製大球的線，並將 new Line 的目標重新綁定到新小球身上，線才不會斷
                         s1.myLines = new ArrayList<>();
                         s2.myLines = new ArrayList<>();
                         for (Line oldLine : b.myLines) {
-                            // 為 s1 和 s2 各自複製新線，並將 targetBall 指向自己
                             s1.myLines.add(new Line(oldLine.startX, oldLine.startY, s1));
                             s2.myLines.add(new Line(oldLine.startX, oldLine.startY, s2));
                         }
-                        
+
                         s1.velocity.x = Math.cos(angle1) * originalSpeed * speedMultiplier;
                         s1.velocity.y = Math.sin(angle1) * originalSpeed * speedMultiplier;
                         s2.velocity.x = Math.cos(angle2) * originalSpeed * speedMultiplier;
                         s2.velocity.y = Math.sin(angle2) * originalSpeed * speedMultiplier;
-                                            
+
                         s1.isFreezed = s2.isFreezed = false;
                         s1.hasEnteredGame = s2.hasEnteredGame = true;
-                        
+
                         toAdd.add(s1);
                         toAdd.add(s2);
+
+                    // ====================================================
+                    // 情況 B：如果是「分裂後的小球」吃到了「任何下一個道具」 -> 隨機變回大球！
+                    // ====================================================
+                    } else if (b.isTiny) {
+                        // 尋找場上另一顆同顏色且還活著的夥伴小球
+                        Ball partner = null;
+                        for (Ball other : balls) {
+                            if (other != b && other.color.equals(b.color) && !other.isDead && other.isTiny) {
+                                partner = other;
+                                break;
+                            }
+                        }
+
+                        // 隨機決定是讓吃到道具的這顆球(b)長大，還是讓它的夥伴(partner)長大
+                        Ball luckyBall = b;
+                        Ball absorbedBall = partner;
+                        if (partner != null && random.nextBoolean()) {
+                            luckyBall = partner;
+                            absorbedBall = b;
+                        }
+
+                        // 將兩顆小球都從世界移除
+                        toRemove.add(luckyBall);
+                        if (absorbedBall != null) {
+                            toRemove.add(absorbedBall);
+                        }
+
+                        // 建立重生的普通大球 (isTiny = false)，繼承幸運小球的位置與速度
+                        Ball bigBall = new Ball(luckyBall.pos.x, luckyBall.pos.y, luckyBall.color, false);
+                        bigBall.velocity = new Vector2D(luckyBall.velocity.x, luckyBall.velocity.y);
+                        bigBall.lives = luckyBall.lives;
+                        bigBall.isFreezed = false;
+                        bigBall.hasEnteredGame = true;
+                        
+                        // 變回大球後，記錄它最新吃到的這個道具類型，讓排行榜能顯示
+                        bigBall.currentItemType = item.type; 
+
+                        // 【完美線段合併】把原本兩顆小球身上的所有線，全部移回重生的大球身上，並重新修正 target 綁定
+                        bigBall.myLines = new ArrayList<>();
+                        for (Line oldLine : luckyBall.myLines) {
+                            bigBall.myLines.add(new Line(oldLine.startX, oldLine.startY, bigBall));
+                        }
+                        if (absorbedBall != null) {
+                            for (Line oldLine : absorbedBall.myLines) {
+                                bigBall.myLines.add(new Line(oldLine.startX, oldLine.startY, bigBall));
+                            }
+                        }
+
+                        toAdd.add(bigBall);
+
+                    // ====================================================
+                    // 情況 C：普通大球吃到普通道具
+                    // ====================================================
                     } else {
-                        // 吃到其他非分裂道具
-                        b.currentItemType = item.type; // 讓大球記住道具類型
+                        b.currentItemType = item.type; // 讓大球更新持有的道具類型
                         item.applyEffect(b);
                     }
-                    itemIter.remove(); 
+
+                    itemIter.remove(); // 刪除被吃掉的道具
                     break;
                 }
             }
