@@ -338,6 +338,58 @@ public class GameManager {
             items.add(new Item(x, y, 5)); // 分裂道具
     }
 
+    // --- 完美修正版：一鍵隨機生成指定數量的純懸空球，碰牆才激活攻擊與存活判定 ---
+    public void spawnBatchRandomBalls(int count) {
+        if (currentState != GameState.SETUP) return;
+
+        // 1. 先清空目前場上的球與 pendingBall
+        this.balls.clear();
+        this.pendingBall = null;
+        Ball.num = 0; // 重置球的 ID 計數器
+
+        // 2. 依序生成指定數量的球
+        for (int i = 0; i < count; i++) {
+            // 隨機在圓形競技場內挑選球的位置（留點內縮邊距避免直接重疊在牆上）
+            double angle = random.nextDouble() * Math.PI * 2;
+            double r = Math.sqrt(random.nextDouble()) * (arenaRadius - 60); 
+            double x = arenaCenterX + r * Math.cos(angle);
+            double y = arenaCenterY + r * Math.sin(angle);
+
+            // 取得目前還沒被使用的顏色
+            Color assignedColor = getAvailableColor();
+            
+            // 建立標準大球 (isTiny = false)
+            Ball b = new Ball(x, y, assignedColor, false);
+
+            // 隨機決定移動方向與速度 (給予 2.5 ~ 5.0 之間的隨機速度)
+            double moveAngle = random.nextDouble() * Math.PI * 2;
+            double speed = 2.5 + random.nextDouble() * 2.5;
+            b.velocity.x = Math.cos(moveAngle) * speed;
+            b.velocity.y = Math.sin(moveAngle) * speed;
+
+            // ====================================================
+            // 【核心修正】完美符合你原本的機制：
+            // 1. 解凍球體 (isFreezed = false)，讓它一按 Start 就能朝隨機方向飛
+            // 2. hasEnteredGame 設為 false！碰牆前系統不會檢查它的線，也不會抹殺它
+            // 3. 不加任何初始線，保持乾淨懸空
+            // ====================================================
+            b.isFreezed = false;
+            b.hasEnteredGame = false; // 關鍵：第一次碰牆前是安全的！
+            b.myLines.clear();        // 確保沒有任何線
+
+            if (currentMode == GameMode.ITEM_MODE) {
+                b.lives = 1; // 道具模式下初始 1 條命
+            } else {
+                b.lives = 1;
+            }
+
+            // 加進球體清單
+            this.balls.add(b);
+        }
+        
+        System.out.println("成功隨機生成 " + count + " 顆純懸空球。第一次碰牆後將會激活拉線與攻擊能力！");
+    }
+
     private void checkWallCollisions() {
         for (Ball b : balls) {
             if (b.isDead)

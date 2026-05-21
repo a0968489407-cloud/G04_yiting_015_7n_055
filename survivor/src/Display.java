@@ -153,7 +153,13 @@ public class Display extends JPanel implements ActionListener {
                 if (e.getKeyCode() == KeyEvent.VK_SPACE)
                     toggleGameMode();
                 else if (e.getKeyCode() == KeyEvent.VK_ENTER)
-                    handleStartRestart();
+                    // --- 修改處：如果場上已經有隨機生成的球，按 ENTER 直接開打，不要重置它們 ---
+                    if (gameManager.currentState == GameState.SETUP && !gameManager.balls.isEmpty()) {
+                        gameManager.currentState = GameState.PLAYING;
+                    } else {
+                        // 如果場上沒球，或者已經在遊戲中，才執行原本的 Start/Restart 切換邏輯
+                        handleStartRestart();
+                    }
                 else if (e.getKeyCode() == KeyEvent.VK_R)
                     showRules();
                 else if (e.getKeyCode() == KeyEvent.VK_ESCAPE)
@@ -171,6 +177,23 @@ public class Display extends JPanel implements ActionListener {
                     currentSpeedMultiplier -= 0.5;
                     if (currentSpeedMultiplier < 1.0) {
                         currentSpeedMultiplier = 1.0;
+                    }
+                }
+                // --- 修改處：新增按鍵 2 ~ 6 隨機生成球數與方向 ---
+                else if (gameManager.currentState == GameState.SETUP) {
+                    int keyCode = e.getKeyCode();
+
+                    // 支援主鍵盤數字鍵 (VK_2 到 VK_6)
+                    if (keyCode >= KeyEvent.VK_2 && keyCode <= KeyEvent.VK_6) {
+                        int ballCount = keyCode - KeyEvent.VK_0; // 轉換為整數 2~6
+                        gameManager.spawnBatchRandomBalls(ballCount);
+                        repaint();
+                    }
+                    // 支援右側九宮格數字鍵 (VK_NUMPAD2 到 VK_NUMPAD6)
+                    else if (keyCode >= KeyEvent.VK_NUMPAD2 && keyCode <= KeyEvent.VK_NUMPAD6) {
+                        int ballCount = keyCode - KeyEvent.VK_NUMPAD0; // 轉換為整數 2~6
+                        gameManager.spawnBatchRandomBalls(ballCount);
+                        repaint();
                     }
                 }
             }
