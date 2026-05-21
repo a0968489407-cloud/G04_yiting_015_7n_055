@@ -233,14 +233,44 @@ public class Display extends JPanel implements ActionListener {
     }
 
     private void showRules() {
-        String rules = "Game Rules:\n" +
-                "1. Use left mouse button to add a ball or set direction.\n" +
-                "2. Use right mouse button to remove a ball.\n" +
-                "3. Press SPACE to switch game mode.\n" +
-                "4. Press ENTER to start or restart the game.\n" +
-                "5. Avoid colliding with other balls and stay within the arena.\n" +
-                "6. Press ESC to exit the game.";
-        JOptionPane.showMessageDialog(this, rules, "Game Rules", JOptionPane.INFORMATION_MESSAGE);
+        String page1_modes =
+                "🏆 1. 經典模式 (Classic) 🏆\n" +
+                "• 獲勝條件：割斷對手的線！活到最後的球獲勝。\n" +
+                "• 初始機制：球剛生成時皆為安全狀態。\n" +
+                "            必須在「第一次撞牆」後才會有攻擊能力和生命(線)！\n" +
+                "• 淘汰機制：當球體身上的線段數歸零時，該顏色立即淘汰。\n\n" +
+                
+                "🎁 2. 道具模式 (Item) 🎁\n" +
+                "• 獲勝條件：割斷對手的線！活到最後的球獲勝。\n" +
+                "• 道具生成：每 1.5 秒隨機掉落道具\n" +
+                "• 初始機制：同經典模式\n" +
+                "• 黑洞磁力：道具自帶重力圈，會將半徑 120px 內的球高速吸向中心。\n" +
+                "• 道具效果：\n" +
+                "  ⚡ 閃電：大幅增加球體的移動速度。\n" +
+                "  ❄️ 冰凍：大幅降低球體速度，使其短暫減速。\n" +
+                "  ❤️ 生命：生命+1。復活時從中間接線\n" +
+                "  🧬 分裂：大球分裂為 2 顆快速小球，完整複製並繼承所有線段。\n" +
+                "  道具非累加!!!\n" +
+                "【1/2】";
+
+        JOptionPane.showMessageDialog(this, page1_modes, "遊戲規則與機制 (第 1 頁 / 共 2 頁)", JOptionPane.INFORMATION_MESSAGE);
+
+        String page2_controls =
+                "🕹️ 3. 操作指南 (Control) 🕹️\n" +
+                "【滑鼠操作 — 準備階段 (SETUP)】\n" +
+                "• 左鍵點擊空地：新增球與指定方向\n" +
+                "• 右鍵點擊球體：刪除該顆球\n\n" +
+                "【鍵盤快捷鍵】\n" +
+                "• 空白鍵  ：切換遊戲模式(CLASSIC / ITEM)\n" +
+                "• ENTER   ：開始遊戲 / 重新重置開局\n" +
+                "• 2 ~ 6 鍵：一鍵隨機生成對應球數與噴射方向\n" +
+                "• R 鍵：規則說明\n" +
+                "• 方向鍵▶：遊戲時間流速加快 (+0.5)，最高 x3.0\n" +
+                "• 方向鍵◀：遊戲時間流速減慢 (-0.5)，最低 x1.0\n" +
+                "• ESC 鍵  ：直接強行關閉並退出遊戲\n\n" +
+                "【2/2】";
+
+        JOptionPane.showMessageDialog(this, page2_controls, "按鍵與操作設定 (第 2 頁 / 共 2 頁)", JOptionPane.INFORMATION_MESSAGE);
     }
 
     @Override
