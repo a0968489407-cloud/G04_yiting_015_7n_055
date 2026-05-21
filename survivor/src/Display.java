@@ -196,6 +196,10 @@ public class Display extends JPanel implements ActionListener {
     }
 
     private void toggleGameMode() {
+        if (gameManager.currentState != GameState.SETUP) {
+            return;
+        }
+
         if (gameManager.currentMode == GameMode.CLASSIC) {
             gameManager.currentMode = GameMode.ITEM_MODE;
             btnMode.text = "Item";
