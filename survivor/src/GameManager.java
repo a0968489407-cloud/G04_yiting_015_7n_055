@@ -136,14 +136,29 @@ public class GameManager {
                         s1.lives = b.lives; 
                         s2.lives = b.lives;
 
+                        // ====================================================
+                        // 【修復 1】確保新誕生的小球在排行榜能認出自己是分裂狀態 (Cell 道具為 type 5)
+                        // ====================================================
+                        s1.currentItemType = 5;
+                        s2.currentItemType = 5;
+
                         double speedMultiplier = 1.3;
                         double originalSpeed = Math.sqrt(b.velocity.x * b.velocity.x + b.velocity.y * b.velocity.y);
                         double angle = Math.atan2(b.velocity.y, b.velocity.x);
                         double angle1 = angle + Math.toRadians(30);
                         double angle2 = angle - Math.toRadians(30);
 
-                        s1.myLines = new ArrayList<>(b.myLines); 
-                        s2.myLines = new ArrayList<>(b.myLines);
+                        // ====================================================
+                        // 【修復 2】複製大球的線，並將線的目標綁定到新小球身上，線才不會斷
+                        // ====================================================
+                        s1.myLines = new ArrayList<>();
+                        s2.myLines = new ArrayList<>();
+                        for (Line oldLine : b.myLines) {
+                            // 為 s1 和 s2 各自複製新線，並將 targetBall 指向自己
+                            s1.myLines.add(new Line(oldLine.startX, oldLine.startY, s1));
+                            s2.myLines.add(new Line(oldLine.startX, oldLine.startY, s2));
+                        }
+                        
                         s1.velocity.x = Math.cos(angle1) * originalSpeed * speedMultiplier;
                         s1.velocity.y = Math.sin(angle1) * originalSpeed * speedMultiplier;
                         s2.velocity.x = Math.cos(angle2) * originalSpeed * speedMultiplier;
@@ -155,6 +170,8 @@ public class GameManager {
                         toAdd.add(s1);
                         toAdd.add(s2);
                     } else {
+                        // 吃到其他非分裂道具
+                        b.currentItemType = item.type; // 讓大球記住道具類型
                         item.applyEffect(b);
                     }
                     itemIter.remove(); 
