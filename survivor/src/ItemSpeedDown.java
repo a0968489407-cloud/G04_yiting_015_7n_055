@@ -6,8 +6,8 @@ public class ItemSpeedDown extends Item {
     @Override
     public void applyEffect(Ball targetBall) {
         // 減速效果: 減少球的速度 (例如減少 20%)
-        targetBall.velocity.x *= 0.8;
-        targetBall.velocity.y *= 0.8;
+        targetBall.velocity.x *= 0.7;
+        targetBall.velocity.y *= 0.7;
     }
 
     
