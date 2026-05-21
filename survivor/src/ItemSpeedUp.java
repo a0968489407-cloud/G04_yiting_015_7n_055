@@ -5,8 +5,8 @@ public class ItemSpeedUp extends Item {
 
     @Override
     public void applyEffect(Ball targetBall) {
-        // 加速效果: 增加球的速度 (例如增加 20%)
-        targetBall.velocity.x *= 1.2;
-        targetBall.velocity.y *= 1.2;
+        // 加速效果: 增加球的速度 (例如增加 15%)
+        targetBall.velocity.x *= 1.15;
+        targetBall.velocity.y *= 1.15;
     }
 }
