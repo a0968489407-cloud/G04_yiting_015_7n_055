@@ -11,6 +11,7 @@ public class SoundManager {
     private static Clip shootClip;
     private static Clip explosionClip;
     private static Clip gameOverClip; // 新增：遊戲結束音效
+    private static Clip winClip; // 新增：勝利音效
     private static Clip powerUpClip;
 
     // 初始化並預先載入所有音效
@@ -48,6 +49,13 @@ public class SoundManager {
                 gameOverClip.open(gameoverIn);
             }
 
+            // === 新增：載入勝利音效 ===
+            File winFile = new File("Space_Invader/Sound effect/win.wav"); 
+            if (winFile.exists()) {
+                winClip = AudioSystem.getClip();
+                winClip.open(AudioSystem.getAudioInputStream(winFile));
+            }
+
         } catch (Exception e) {
             System.out.println("音效載入失敗，錯誤：" + e.getMessage());
         }
@@ -78,6 +86,10 @@ public class SoundManager {
 
     public static void playGameOver() {
         playClip(gameOverClip);
+    }
+
+    public static void playWin() {
+        playClip(winClip);
     }
 
     public static void playPowerUp() {
