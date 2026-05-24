@@ -407,7 +407,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 Rectangle playerRect = new Rectangle(shooter.x, shooter.y, 50, 50);
                 if (bulletRect.intersects(playerRect)) {
                     if (!hasShield) {
-                        hp -= 10; // 紫色外星人子彈傷害：10
+                        hp -= 10; 
                         checkGameOver();
                     }
                     hitSomething = true;
@@ -419,10 +419,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                     if (a.isAlive) {
                         Rectangle alienRect = new Rectangle(a.x, a.y, a.width, a.height);
                         if (bulletRect.intersects(alienRect)) {
-                            a.hp--; // 扣除外星人血量 (灰色要兩次)
+                            a.hp--; 
                             if (a.hp <= 0) {
                                 a.isAlive = false;
-                                score += (a.type == 3) ? 30 : 10; // 打倒裝甲給多一點分數
+                                score += (a.type == 3) ? 30 : 10; 
                                 SoundManager.playExplosion();
                             }
                             hitSomething = true;
@@ -431,18 +431,23 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                     }
                 }
 
-                // 【玩家子彈打 UFO】
+                // === 修改：【玩家子彈打 UFO】擊中直接得道具 ===
                 if (!hitSomething && ufo.active && bulletRect.intersects(ufo.getBounds())) {
                     score += 500;
                     ufo.active = false; 
                     hitSomething = true;
                     SoundManager.playExplosion();
+                    
+                    // 隨機決定道具類型 (0: 防護罩, 1: 減速, 2: 大量子彈)
                     int rType = new java.util.Random().nextInt(3); 
-                    powerUps.add(new PowerUp(ufo.x, ufo.y, rType));
+                    
+                    // 直接放入道具欄（如果背包還沒滿 3 個）
+                    if (inventory.size() < 3) { 
+                        inventory.add(rType);
+                    }
                 }
             }
 
-            // 如果打到了東西，或是飛出邊界，子彈消失
             if (hitSomething || b.y < -50 || b.y > 850) {
                 bullets.remove(i);
             }
