@@ -295,7 +295,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         // === 新增：處理連續按鍵輸入 (移動與射擊) ===
         // 註：因為現在是每一幀 (每20ms) 都會移動，為了視覺平滑，將移動量從 15 調整為 8
         if (leftPressed) {
-            shooter.move(-8); 
+            shooter.move(-8);
         }
         if (rightPressed) {
             shooter.move(8);
@@ -308,10 +308,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         // 當按住空白鍵，且冷卻時間為 0 時，才發射子彈
         if (spacePressed && shootCooldown == 0) {
-            if (spreadShot){ 
+            if (spreadShot) {
                 bullets.add(new Bullet(shooter.x + 22, shooter.y, -3, -10));
-                bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -10)); 
-                bullets.add(new Bullet(shooter.x + 22, shooter.y, 3, -10)); 
+                bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -10));
+                bullets.add(new Bullet(shooter.x + 22, shooter.y, 3, -10));
             } else {
                 bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -10));
             }
@@ -513,40 +513,52 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 isStarted = true;
                 repaint();
             }
-            return; 
+            return;
         }
-        
+
         if (isGameOver) {
             if (key == KeyEvent.VK_ENTER) {
-                initGame();                    
-                repaint(); 
+                initGame();
+                repaint();
             }
-        } 
-        else {
+        } else {
             // 遊戲進行中：當按下方向鍵或空白鍵時，標記為 true
-            if (key == KeyEvent.VK_LEFT) leftPressed = true;
-            if (key == KeyEvent.VK_RIGHT) rightPressed = true;
-            if (key == KeyEvent.VK_SPACE) spacePressed = true;
+            if (key == KeyEvent.VK_LEFT)
+                leftPressed = true;
+            if (key == KeyEvent.VK_RIGHT)
+                rightPressed = true;
+            if (key == KeyEvent.VK_SPACE)
+                spacePressed = true;
 
             // Z 鍵維持單次按下觸發
-            if (key == KeyEvent.VK_Z) { 
+            if (key == KeyEvent.VK_Z) {
                 if (!inventory.isEmpty()) {
-                    int itemToUse = inventory.remove(0); 
-                    activatePowerUp(itemToUse); 
+                    int itemToUse = inventory.remove(0);
+                    activatePowerUp(itemToUse);
                 }
             }
+            if (key == KeyEvent.VK_R) {
+                initGame(); // 先把分數、外星人、生命等數據歸零
+                isStarted = false; // 將狀態切換回「未開始」，就會顯示主畫面
+                repaint();
+                return;
+            }
         }
-    }
-    
-    @Override 
-    public void keyReleased(KeyEvent e) {
-        // 當放開按鍵時，將狀態改回 false
-        int key = e.getKeyCode();
-        if (key == KeyEvent.VK_LEFT) leftPressed = false;
-        if (key == KeyEvent.VK_RIGHT) rightPressed = false;
-        if (key == KeyEvent.VK_SPACE) spacePressed = false;
     }
 
     @Override
-    public void keyTyped(KeyEvent e) {}
+    public void keyReleased(KeyEvent e) {
+        // 當放開按鍵時，將狀態改回 false
+        int key = e.getKeyCode();
+        if (key == KeyEvent.VK_LEFT)
+            leftPressed = false;
+        if (key == KeyEvent.VK_RIGHT)
+            rightPressed = false;
+        if (key == KeyEvent.VK_SPACE)
+            spacePressed = false;
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+    }
 }
