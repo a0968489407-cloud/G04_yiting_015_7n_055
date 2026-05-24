@@ -1,3 +1,4 @@
+package main;
 
 import java.awt.Color;
 import java.awt.Font;
@@ -9,9 +10,6 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.ArrayList;
 import javax.swing.Timer;
-
-import main.PowerUp;
-import main.UFO;
 
 import javax.swing.JPanel;
 
@@ -68,6 +66,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         // 呼叫初始化遊戲的方法
         initGame();
+
+        SoundManager.init(); // 初始化音效
+        SoundManager.playBGM(); // 播放背景音樂
 
         // 隨機數取星星位置和大小
         java.util.Random rand = new java.util.Random();
@@ -314,7 +315,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             } else {
                 bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -10));
             }
-            shootCooldown = 12; // 設定冷卻時間 (12幀 = 240毫秒，可依手感自行微調)
+            shootCooldown = 3; // 設定冷卻時間 (12幀 = 240毫秒，可依手感自行微調)
         }
         // ===========================================
 
