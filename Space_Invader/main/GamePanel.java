@@ -124,11 +124,37 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
+                double rand = Math.random(); 
                 int type = 0;
-                if (wave >= 2) {
-                    double spawnRate = 0.05 + ((wave - 2) * 0.05);
-                    type = (Math.random() < spawnRate) ? 1 : 0;
+                int currentWave = Math.min(wave, 5); // 超過第5關就以第5關的機率生成
+
+                if (currentWave == 1) {
+                    if (rand < 0.80) type = 0;
+                    else if (rand < 0.95) type = 1;
+                    else type = 3;
+                } else if (currentWave == 2) {
+                    if (rand < 0.60) type = 0;
+                    else if (rand < 0.80) type = 1;
+                    else type = 3;
+                } else if (currentWave == 3) {
+                    if (rand < 0.60) type = 0;
+                    else if (rand < 0.75) type = 1;
+                    else if (rand < 0.90) type = 2;
+                    else type = 3;
+                } else if (currentWave == 4) {
+                    if (rand < 0.50) type = 0;
+                    else if (rand < 0.60) type = 1;
+                    else if (rand < 0.75) type = 2;
+                    else if (rand < 0.85) type = 3;
+                    else type = 4;
+                } else { // 第5關
+                    if (rand < 0.30) type = 0;
+                    else if (rand < 0.45) type = 1;
+                    else if (rand < 0.65) type = 2;
+                    else if (rand < 0.80) type = 3;
+                    else type = 4;
                 }
+
                 Alien a = new Alien(type);
                 a.x = 100 + c * 80;
                 a.y = -100 + r * 50;
@@ -288,28 +314,42 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         }
     }
 
+    // === 新增：統一檢查血量是否歸零與死亡處理 ===
+    private void checkGameOver() {
+        if (hp <= 0) {
+            hp = 0;
+            isGameOver = true;
+            isWin = false;
+            SoundManager.stopBGM();     
+            SoundManager.playGameOver(); 
+        }
+    }
+
     @Override
     public void actionPerformed(ActionEvent e) {
+        // --- 1. 背景星星動畫 ---
         for (Star s : stars) {
             s.twinkle();
         }
 
+        // --- 2. 過場狀態檢測 ---
+        // 如果正在顯示過場文字，清空畫面上的子彈，並跳過物理運算
         if (waveDisplayTimer > 0) {
-            bullets.clear();
+            bullets.clear(); 
             repaint();
             return;
         }
 
+        // 如果遊戲還沒開始或已經結束，就不再更新任何物件的移動邏輯
         if (!isStarted || isGameOver) {
             return;
         }
 
-        if (leftPressed)
-            shooter.move(-8);
-        if (rightPressed)
-            shooter.move(8);
+        // --- 3. 玩家移動 ---
+        if (leftPressed) shooter.move(-8);
+        if (rightPressed) shooter.move(8);
 
-        // --- 新增：彈藥回復邏輯 (每 0.5 秒回復 1 發) ---
+        // --- 4. 彈藥回復邏輯 (每 0.5 秒回復 1 發) ---
         // 遊戲迴圈是 20ms 一幀，25 幀剛好是 500ms (0.5秒)
         ammoRegenTimer++;
         if (ammoRegenTimer >= 25) {
@@ -319,15 +359,16 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             ammoRegenTimer = 0; // 重置計時器
         }
 
+        // --- 5. 玩家射擊邏輯 ---
         if (shootCooldown > 0) {
             shootCooldown--;
         }
 
+        // 需要有彈藥 (ammo > 0) 且冷卻完畢才能發射
         if (spacePressed && shootCooldown == 0 && ammo > 0) {
-            
             ammo--; // 扣除 1 發彈藥
 
-            // === 修改：子彈速度加快，將垂直速度從 -10 改為 -20 ===
+            // 子彈速度加快，將垂直速度設為 -35
             if (spreadShot) {
                 bullets.add(new Bullet(shooter.x + 22, shooter.y, -4, -35));
                 bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -35));
@@ -336,20 +377,16 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -35));
             }
             
-            // === 修改：發射速度減慢，將冷卻時間從 3 加長為 6 ===
-            shootCooldown = 6; 
-            
+            // 發射速度減慢，將冷卻時間設為 12 幀
+            shootCooldown = 5; 
             SoundManager.playShoot();
-        }
-
-        for (int i = 0; i < bullets.size(); i++) {
-            bullets.get(i).update();
         }
 
         if (edgeCooldown > 0) {
             edgeCooldown--;
         }
 
+        // --- 6. UFO 邏輯 ---
         if (!ufo.active) {
             if (Math.random() < 0.001) {
                 ufo.spawn();
@@ -358,8 +395,61 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             ufo.update();
         }
 
-        boolean hitEdge = false;
+        // --- 7. 所有子彈移動與碰撞 (包含敵我) ---
+        for (int i = bullets.size() - 1; i >= 0; i--) {
+            Bullet b = bullets.get(i);
+            b.update();
+            boolean hitSomething = false; 
+            Rectangle bulletRect = new Rectangle(b.x, b.y, 5, 10);
 
+            if (b.isEnemy) {
+                // 【敵方子彈打玩家】
+                Rectangle playerRect = new Rectangle(shooter.x, shooter.y, 50, 50);
+                if (bulletRect.intersects(playerRect)) {
+                    if (!hasShield) {
+                        hp -= 10; // 紫色外星人子彈傷害：10
+                        checkGameOver();
+                    }
+                    hitSomething = true;
+                }
+            } else {
+                // 【玩家子彈打外星人】
+                for (int j = aliens.size() - 1; j >= 0; j--) {
+                    Alien a = aliens.get(j);
+                    if (a.isAlive) {
+                        Rectangle alienRect = new Rectangle(a.x, a.y, a.width, a.height);
+                        if (bulletRect.intersects(alienRect)) {
+                            a.hp--; // 扣除外星人血量 (灰色要兩次)
+                            if (a.hp <= 0) {
+                                a.isAlive = false;
+                                score += (a.type == 3) ? 30 : 10; // 打倒裝甲給多一點分數
+                                SoundManager.playExplosion();
+                            }
+                            hitSomething = true;
+                            break; 
+                        }
+                    }
+                }
+
+                // 【玩家子彈打 UFO】
+                if (!hitSomething && ufo.active && bulletRect.intersects(ufo.getBounds())) {
+                    score += 500;
+                    ufo.active = false; 
+                    hitSomething = true;
+                    SoundManager.playExplosion();
+                    int rType = new java.util.Random().nextInt(3); 
+                    powerUps.add(new PowerUp(ufo.x, ufo.y, rType));
+                }
+            }
+
+            // 如果打到了東西，或是飛出邊界，子彈消失
+            if (hitSomething || b.y < -50 || b.y > 850) {
+                bullets.remove(i);
+            }
+        }
+
+        // --- 8. 外星人移動、射擊與撞擊判定 ---
+        boolean hitEdge = false;
         if (isSlowed) {
             slowTimer--;
             slowCounter++;
@@ -367,15 +457,54 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         for (Alien a : aliens) {
             if (a.isAlive && waveDisplayTimer == 0) {
+                
+                // 邊界判定
                 if (edgeCooldown == 0 && (a.x <= 0 || a.x >= 750)) {
                     hitEdge = true;
                 }
+
+                // 呼叫移動 (傳遞玩家 X 座標讓藍色可以追蹤)
                 if (!isSlowed || (slowCounter % 2 == 0)) {
-                    a.move(alienDirection, wave);
+                    a.move(alienDirection, wave, shooter.x);
+                }
+
+                // 紫色外星人：每秒(50幀)射一發子彈
+                if (a.type == 4 && (!isSlowed || slowCounter % 2 == 0)) {
+                    a.shootTimer++;
+                    if (a.shootTimer >= 50) {
+                        // isEnemy = true, 顏色 = 紫紅, 垂直速度 = 10
+                        bullets.add(new Bullet(a.x + 18, a.y + a.height, 0, 10, true, Color.MAGENTA));
+                        a.shootTimer = 0;
+                    }
+                }
+
+                // 碰撞判定：是否撞到底部
+                if (a.y + a.height >= 650) {
+                    if (!hasShield) {
+                        // 藍色與紫色碰底 -10，其他 -20
+                        int damage = (a.type == 2 || a.type == 4) ? 10 : 20;
+                        hp -= damage;
+                        checkGameOver();
+                    }
+                    a.isAlive = false; 
+                } 
+                // 碰撞判定：是否撞到玩家本體
+                else {
+                    Rectangle alienRect = new Rectangle(a.x, a.y, a.width, a.height);
+                    Rectangle playerRect = new Rectangle(shooter.x, shooter.y, 50, 50);
+                    if (alienRect.intersects(playerRect)) {
+                        if (!hasShield) {
+                            hp -= 30; // 任何外星人直接撞擊玩家都是 -30
+                            checkGameOver();
+                        }
+                        a.isAlive = false;
+                        SoundManager.playExplosion();
+                    }
                 }
             }
         }
 
+        // 處理群體碰壁反彈與下移
         if (slowCounter >= 100) {
             slowCounter = 0;
         }
@@ -384,65 +513,32 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             alienDirection *= -1;
             edgeCooldown = 10;
             for (Alien a : aliens) {
-                if (a.isAlive)
-                    a.y += 20;
+                if (a.isAlive) a.y += 20;
             }
         }
 
         if (slowTimer <= 0) {
-            isSlowed = false;
-            slowTimer = 0;
-            slowCounter = 0;
+            isSlowed = false; 
+            slowTimer = 0; 
+            slowCounter = 0; 
         }
 
-        // 碰撞檢測
-        for (int i = bullets.size() - 1; i >= 0; i--) {
-            Bullet b = bullets.get(i);
-            Rectangle bulletRect = new Rectangle(b.x, b.y, 5, 10);
-            boolean hitSomething = false;
-
-            for (int j = aliens.size() - 1; j >= 0; j--) {
-                Alien a = aliens.get(j);
-                if (a.isAlive) {
-                    Rectangle alienRect = new Rectangle(a.x, a.y, a.width, a.height);
-                    if (bulletRect.intersects(alienRect)) {
-                        a.isAlive = false;
-                        score += 10;
-                        hitSomething = true;
-                        SoundManager.playExplosion();
-                        break;
-                    }
-                }
-            }
-
-            if (ufo.active && bulletRect.intersects(ufo.getBounds())) {
-                score += 500;
-                ufo.active = false;
-                hitSomething = true;
-                SoundManager.playExplosion();
-                int rType = new java.util.Random().nextInt(3);
-                powerUps.add(new PowerUp(ufo.x, ufo.y, rType));
-            }
-
-            if (hitSomething) {
-                bullets.remove(i);
-            }
-        }
-
+        // --- 9. 道具更新與撿取 ---
         for (int i = powerUps.size() - 1; i >= 0; i--) {
             PowerUp p = powerUps.get(i);
             p.update();
 
             Rectangle playerRect = new Rectangle(shooter.x, shooter.y, 50, 20);
             if (playerRect.intersects(new Rectangle(p.x, p.y, 20, 20))) {
-                if (inventory.size() < 3) {
+                if (inventory.size() < 3) { 
                     inventory.add(p.type);
                 }
                 powerUps.remove(i);
-                break;
+                break; 
             }
         }
 
+        // 道具效果倒數
         if (powerUpTimer > 0) {
             powerUpTimer--;
             if (powerUpTimer == 0) {
@@ -451,57 +547,31 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             }
         }
 
+        // --- 10. 清理已經爆炸完成的外星人 ---
         for (int j = aliens.size() - 1; j >= 0; j--) {
             Alien a = aliens.get(j);
             if (!a.isAlive && a.explosionTimer >= a.MAX_EXPLOSION_TIME) {
-                aliens.remove(j);
+                aliens.remove(j); 
             }
         }
 
+        // --- 11. 遊戲過關或進入下一波條件判定 ---
         if (aliens.isEmpty()) {
             if (wave > 5) {
                 isGameOver = true;
                 isWin = true;
-                SoundManager.stopBGM();
-                return;
+                SoundManager.stopBGM(); 
+                return; 
             }
             wave++;
-            waveDisplayTimer = 100;
+            waveDisplayTimer = 100; 
             spawnAliens();
 
-            ammo = MAX_AMMO; // 每波開始時補滿彈藥
+            // 每一波開始時，將子彈補滿
+            ammo = MAX_AMMO; 
         }
 
-        // === 修改：外星人到達底部的扣血與傷害判定邏輯 ===
-        for (Alien a : aliens) {
-            if (a.isAlive && a.y + a.height >= 650) {
-                if (hasShield) {
-                    // 有防護罩時：外星人撞擊死亡，玩家不扣血
-                    a.isAlive = false;
-                } else {
-                    // 沒有防護罩時：根據外星人種類決定不同傷害值
-                    int damage = 15; // 預設普通外星人 (type 0) 傷害 15 點
-
-                    if (a.type == 1) {
-                        damage = 35; // 紅色俯衝者 (type 1) 傷害更高，扣 35 點
-                    }
-
-                    hp -= damage; // 扣除血量
-                    a.isAlive = false; // 讓攻擊過的外星人死亡消失，避免在下一幀重複扣血
-
-                    // 檢查玩家血量是否歸零
-                    if (hp <= 0) {
-                        hp = 0;
-                        isGameOver = true;
-                        isWin = false;
-                        SoundManager.stopBGM(); // 停止背景音樂
-                        SoundManager.playGameOver(); // 播放失敗音效
-                        break;
-                    }
-                }
-            }
-        }
-
+        // --- 12. 重新繪製畫面 ---
         repaint();
     }
 
