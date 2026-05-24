@@ -56,6 +56,12 @@ public class SoundManager {
                 winClip.open(AudioSystem.getAudioInputStream(winFile));
             }
 
+            File getItemFile = new File("Space_Invader/Sound effect/getitem.wav"); 
+            if (getItemFile.exists()) {
+                powerUpClip = AudioSystem.getClip();
+                powerUpClip.open(AudioSystem.getAudioInputStream(getItemFile));
+            }
+            
         } catch (Exception e) {
             System.out.println("音效載入失敗，錯誤：" + e.getMessage());
         }

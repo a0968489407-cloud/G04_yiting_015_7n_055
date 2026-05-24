@@ -462,6 +462,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                     int rType = new java.util.Random().nextInt(4); // 0~3
                     if (inventory.size() < 3) {
                         inventory.add(rType);
+                        SoundManager.playPowerUp();
                     }
                 }
             }
