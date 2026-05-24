@@ -68,7 +68,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         initGame();
 
         SoundManager.init(); // 初始化音效
-        SoundManager.playBGM(); // 播放背景音樂
 
         // 隨機數取星星位置和大小
         java.util.Random rand = new java.util.Random();
@@ -316,6 +315,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -10));
             }
             shootCooldown = 3; // 設定冷卻時間 (12幀 = 240毫秒，可依手感自行微調)
+            SoundManager.playShoot();
         }
         // ===========================================
 
@@ -399,6 +399,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                         a.isAlive = false;
                         score += 10;
                         hitSomething = true;
+                        SoundManager.playExplosion();
                         break; // 打到就跳出外星人迴圈
                     }
                 }
@@ -409,6 +410,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 score += 500;
                 ufo.active = false; // UFO 消失
                 hitSomething = true;
+
+                SoundManager.playExplosion();
 
                 // --- 掉落道具 ---
                 int rType = new java.util.Random().nextInt(3); // 0, 1, 2
@@ -480,6 +483,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 } else {// 外星人到底部，且沒有防護罩技能，遊戲結束
                     isGameOver = true;
                     isWin = false;
+
+                    SoundManager.stopBGM();
+                    SoundManager.playGameOver();
                     break;
                 }
             }
@@ -510,7 +516,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         if (!isStarted) {
             if (key == KeyEvent.VK_ENTER) {
+                initGame();
                 isStarted = true;
+                SoundManager.playBGM();
                 repaint();
             }
             return;
@@ -520,6 +528,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             if (key == KeyEvent.VK_ENTER) {
                 initGame();
                 repaint();
+                SoundManager.playBGM();
             }
         } else {
             // 遊戲進行中：當按下方向鍵或空白鍵時，標記為 true
@@ -540,6 +549,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             if (key == KeyEvent.VK_R) {
                 initGame(); // 先把分數、外星人、生命等數據歸零
                 isStarted = false; // 將狀態切換回「未開始」，就會顯示主畫面
+                SoundManager.stopBGM();
                 repaint();
                 return;
             }
