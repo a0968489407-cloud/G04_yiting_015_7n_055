@@ -76,20 +76,20 @@ public class Alien {
 
         if (type == 1) {
             // 紅色 (綠色延伸)：快速下降，左右波浪範圍極大且極快
-            this.y += 3; 
-            double baseSpeed = 8 + wave;
-            double oscillator = Math.sin(System.currentTimeMillis() / 200.0 + (y * 0.1)) * 5.0;
+            this.y += 2; 
+            double baseSpeed = 5 + wave;
+            double oscillator = Math.sin(System.currentTimeMillis() / 200.0 + (y * 0.1)) * 3.0;
             this.x += (direction * baseSpeed) + oscillator;
             
         } else if (type == 2) {
             // 藍色 (紅色延伸)：快速下降，並水平追蹤玩家
-            this.y += 3;
+            this.y += 2;
             if (this.x < targetX) this.x += 4 + (wave * 0.5);
             else if (this.x > targetX) this.x -= 4 + (wave * 0.5);
             
         } else {
             // 綠、灰、紫：標準移動
-            double baseSpeed = 4 + (wave * 0.5);
+            double baseSpeed = 3 + (wave * 0.5);
             double waveAmplitude = 3.0 + (wave * 0.8);
             double oscillator = Math.sin(System.currentTimeMillis() / 250.0 + (y * 0.05)) * waveAmplitude;
             this.x += (direction * baseSpeed) + oscillator;
