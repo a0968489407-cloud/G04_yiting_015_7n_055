@@ -32,6 +32,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     int hp = 100;
     final int MAX_HP = 100;
 
+    // === 新增：彈藥變數 ===
+    int ammo = 35;
+    final int MAX_AMMO = 35;
+    int ammoRegenTimer = 0; // 用來計算0.5秒回復的計時器
+
     // 星星
     ArrayList<Star> stars = new ArrayList<>();
 
@@ -102,6 +107,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         // === 新增：重新開始時重設血量 ===
         hp = MAX_HP;
+
+        ammo = MAX_AMMO;
+        ammoRegenTimer = 0;
 
         leftPressed = false;
         rightPressed = false;
@@ -224,38 +232,59 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             }
 
             // === 修改：左上角 UI 區域 (分數與血量條) ===
-            // 1. 繪製前面的小愛心 (由兩個圓形與一個倒三角形組合而成)
+            // 1. 繪製前面的小愛心
             int heartX = 15;
             int heartY = 17;
             g.setColor(Color.RED);
-            g.fillOval(heartX, heartY, 8, 8);          // 左心房
-            g.fillOval(heartX + 6, heartY, 8, 8);      // 右心房
+            g.fillOval(heartX, heartY, 8, 8);          
+            g.fillOval(heartX + 6, heartY, 8, 8);      
             int[] hX = {heartX, heartX + 7, heartX + 14};
             int[] hY = {heartY + 4, heartY + 13, heartY + 4};
-            g.fillPolygon(hX, hY, 3);                  // 下方尖端
+            g.fillPolygon(hX, hY, 3);                  
 
-            // 2. 繪製紅色血量條外框與暗色背景 (起點移到愛心後方的 x = 35)
+            // 2. 繪製紅色血量條
             g.setColor(Color.GRAY);
-            g.drawRect(35, 15, 150, 15); // 外框
+            g.drawRect(35, 15, 150, 15); 
             g.setColor(new Color(50, 50, 50));
-            g.fillRect(36, 16, 148, 13); // 暗灰色背景
+            g.fillRect(36, 16, 148, 13); 
 
-            // 3. 根據目前血量比例動態計算紅色血條寬度
             if (hp > 0) {
-                g.setColor(Color.RED); // 血條改為紅色
+                g.setColor(Color.RED); 
                 int barWidth = (int) (148 * ((double) hp / MAX_HP));
                 g.fillRect(36, 16, barWidth, 13);
             }
-
-            // 4. 顯示血量文字數字 (順移到血條右邊)
             g.setColor(Color.WHITE);
             g.setFont(new Font("Arial", Font.BOLD, 12));
             g.drawString(hp + " / " + MAX_HP, 195, 28);
 
-            // 5. 繪製分數 (移到血條下方，對齊最左側)
+            // --- 3. 新增：繪製前面的小子彈圖示 ---
+            int bulletX = 17;
+            int bulletY = 40;
+            g.setColor(Color.YELLOW);
+            g.fillRect(bulletX, bulletY, 4, 8);        // 子彈主體
+            int[] bX = {bulletX, bulletX + 2, bulletX + 4};
+            int[] bY = {bulletY, bulletY - 3, bulletY};
+            g.fillPolygon(bX, bY, 3);                  // 子彈尖端
+
+            // --- 4. 新增：繪製黃色彈藥條 (在血條下方) ---
+            g.setColor(Color.GRAY);
+            g.drawRect(35, 35, 150, 15); // 外框向下平移 20 像素
+            g.setColor(new Color(50, 50, 50));
+            g.fillRect(36, 36, 148, 13); // 暗灰色背景
+
+            if (ammo > 0) {
+                g.setColor(Color.YELLOW); 
+                int ammoBarWidth = (int) (148 * ((double) ammo / MAX_AMMO));
+                g.fillRect(36, 36, ammoBarWidth, 13);
+            }
+            g.setColor(Color.WHITE);
+            g.setFont(new Font("Arial", Font.BOLD, 12));
+            g.drawString(ammo + " / " + MAX_AMMO, 195, 48);
+
+            // 5. 繪製分數 (再往下平移到彈藥條下方)
             g.setColor(Color.WHITE);
             g.setFont(new Font("Arial", Font.BOLD, 20));
-            g.drawString("Score: " + score, 15, 52);
+            g.drawString("Score: " + score, 15, 75);
         }
     }
 
@@ -280,19 +309,36 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         if (rightPressed)
             shooter.move(8);
 
+        // --- 新增：彈藥回復邏輯 (每 0.5 秒回復 1 發) ---
+        // 遊戲迴圈是 20ms 一幀，25 幀剛好是 500ms (0.5秒)
+        ammoRegenTimer++;
+        if (ammoRegenTimer >= 25) {
+            if (ammo < MAX_AMMO) {
+                ammo++;
+            }
+            ammoRegenTimer = 0; // 重置計時器
+        }
+
         if (shootCooldown > 0) {
             shootCooldown--;
         }
 
-        if (spacePressed && shootCooldown == 0) {
+        if (spacePressed && shootCooldown == 0 && ammo > 0) {
+            
+            ammo--; // 扣除 1 發彈藥
+
+            // === 修改：子彈速度加快，將垂直速度從 -10 改為 -20 ===
             if (spreadShot) {
-                bullets.add(new Bullet(shooter.x + 22, shooter.y, -3, -10));
-                bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -10));
-                bullets.add(new Bullet(shooter.x + 22, shooter.y, 3, -10));
+                bullets.add(new Bullet(shooter.x + 22, shooter.y, -4, -35));
+                bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -35));
+                bullets.add(new Bullet(shooter.x + 22, shooter.y, 4, -35));
             } else {
-                bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -10));
+                bullets.add(new Bullet(shooter.x + 22, shooter.y, 0, -35));
             }
-            shootCooldown = 3;
+            
+            // === 修改：發射速度減慢，將冷卻時間從 3 加長為 6 ===
+            shootCooldown = 6; 
+            
             SoundManager.playShoot();
         }
 
@@ -422,6 +468,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             wave++;
             waveDisplayTimer = 100;
             spawnAliens();
+
+            ammo = MAX_AMMO; // 每波開始時補滿彈藥
         }
 
         // === 修改：外星人到達底部的扣血與傷害判定邏輯 ===
