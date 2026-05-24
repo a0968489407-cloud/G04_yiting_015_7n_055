@@ -231,7 +231,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 g.setColor(Color.WHITE);
                 g.setFont(new Font("Arial", Font.PLAIN, 20));
                 g.drawString("Press ENTER to Restart", 280, 300);
-                g.drawString("Press R to Main Menu", 295, 330);
             } else {
                 shooter.draw(g, hasShield);
                 for (Bullet b : bullets)
@@ -357,8 +356,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        for (Star s : stars)
+        for (Star s : stars) {
             s.twinkle();
+            s.move(); // === 新增這行：讓星星每一幀都往下移動 ===
+        }
 
         if (waveDisplayTimer > 0) {
             bullets.clear();
@@ -561,6 +562,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 isWin = true;
                 SoundManager.stopBGM();
                 SoundManager.playWin(); // 播放勝利專屬音效
+                repaint();
                 return;
             }
             wave++;
