@@ -1,4 +1,4 @@
-//package Space_Invader;
+package main;
 
 import javax.swing.JFrame;
 
