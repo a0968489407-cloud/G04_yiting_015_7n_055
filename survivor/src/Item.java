@@ -8,39 +8,56 @@ public class Item {
     public static int num = 0;
     public int radius;
     public Vector2D pos;
+    // 道具種類：2:加速, 4:減速, 5:分裂, 6:加命
     public int type; 
+    // 是否還在場上可被拾取
     public boolean isAvailable;
     
-    // 新增圖片變數
+    // 靜態載入的道具圖示資源
     public static Image speedUpImg;
     public static Image speedDownImg;
     public static Image splitImg;
-    public static Image anotherLifeImg; // 生命道具圖片
+    public static Image anotherLifeImg; 
 
     public Item(double x, double y, int type) {
         num++;
-        this.radius = 18; // 配合圖片大小稍微調大
+        this.radius = 18; 
         this.pos = new Vector2D(x, y);
         this.type = type;
         this.isAvailable = true;
         
-        // 靜態載入圖片（只需載入一次）
+        // 第一次建立道具時載入圖片
         if (speedUpImg == null) loadImages();
     }
 
     private void loadImages() {
         try {
-            // 請確保你的專案目錄下有這些圖檔，或換成你的路徑
             speedUpImg = ImageIO.read(new File("survivor/pic/lightning.png"));
             speedDownImg = ImageIO.read(new File("survivor/pic/freeze.png"));
             splitImg = ImageIO.read(new File("survivor/pic/cell.png"));
-            anotherLifeImg = ImageIO.read(new File("survivor/pic/heart.png")); // 生命道具圖片
+            anotherLifeImg = ImageIO.read(new File("survivor/pic/heart.png")); 
         } catch (Exception e) {
             System.out.println("圖片載入失敗，將使用預設幾何圖形替代");
         }
     }
 
-    public void applyEffect(Ball targetBall) { }
+    // 將各種道具的效果整併在此，針對傳入的目標球產生增益或減益
+    public void applyEffect(Ball targetBall) { 
+        switch(this.type) {
+            case 2: // 加速道具 (增加 15% 速度)
+                targetBall.velocity.x *= 1.15;
+                targetBall.velocity.y *= 1.15;
+                break;
+            case 4: // 減速道具 (減少 30% 速度)
+                targetBall.velocity.x *= 0.7;
+                targetBall.velocity.y *= 0.7;
+                break;
+            case 6: // 加命道具 (生命值 +1)
+                targetBall.lives++;
+                break;
+            // 註：type 5 (分裂道具) 會改變球的數量與產生新物件，其特殊邏輯在 GameManager 處理
+        }
+    }
 
     public void draw(Graphics g) {
         if (!isAvailable) return;
@@ -54,10 +71,10 @@ public class Item {
         }
 
         if (img != null) {
-            // 繪製圖片，並將中心點對準 pos
+            // 將圖片置中繪製於道具座標
             g.drawImage(img, (int)pos.x - radius, (int)pos.y - radius, radius * 2, radius * 2, null);
         } else {
-            // 如果圖片載入失敗的備用方案
+            // 防呆：若無圖片則畫黃色方塊
             g.setColor(Color.YELLOW); 
             g.fillRect((int)pos.x - radius, (int)pos.y - radius, radius * 2, radius * 2);
         }
