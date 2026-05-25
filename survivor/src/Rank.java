@@ -11,7 +11,6 @@ public class Rank {
     private static class ColorGroup {
         Color color;
         int totalLines;
-        int totalLives; 
         boolean isAllDead;
         int latestDeathTick;
         int minId;
@@ -20,7 +19,6 @@ public class Rank {
         ColorGroup(Color color) {
             this.color = color;
             this.totalLines = 0;
-            this.totalLives = 0;
             this.isAllDead = true;
             this.latestDeathTick = -1;
             this.minId = Integer.MAX_VALUE;
@@ -43,7 +41,6 @@ public class Rank {
 
             if (!b.isDead) {
                 group.isAllDead = false; // 只要有一顆活著，該顏色就算存活
-                group.totalLives += b.lives;
                 if (b.currentItemType != -1) {
                     group.activeItemType = b.currentItemType; // 紀錄最新獲得的道具種類
                 }
