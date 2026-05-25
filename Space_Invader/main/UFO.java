@@ -4,33 +4,40 @@ import java.awt.Graphics;
 import java.awt.Rectangle;
 
 public class UFO {
+    // 實體座標與速度
     public int x, y;
     int speed;
+    // 標記飛行方向以決定更新座標時做加減
     boolean movingRight;
-    public boolean active = false; // 用來控制 UFO 是否存在於畫面上
+    // 布林旗標控制此物件是否該被更新運算或渲染
+    public boolean active = false; 
 
     public UFO() {
         spawn();
     }
 
     public void spawn() {
-        // 隨機決定從左邊還右邊出現
+        // 透過 Math.random() 回傳 0.0~1.0 的特性，大於 0.5 時布林為 true，達到 50% 兩側機率
         movingRight = Math.random() > 0.5;
-        y = 50; // 固定在螢幕上方
+        // 強制鎖死 Y 軸高度為 50
+        y = 50; 
         speed = 3;
         
-        if (movingRight) x = -50;       // 從左側外出現
-        else x = 800;                  // 從右側外出現
+        // 依據決定好的方向，設定出發點在畫面的左外側或右外側
+        if (movingRight) x = -50;       
+        else x = 800;                  
+        // 狀態啟動
         active = true;
     }
 
     public void update() {
         if (!active) return;
         
+        // 依據方向旗標對 X 軸加上或減去 speed 常數
         if (movingRight) x += speed;
         else x -= speed;
 
-        // 如果飛出螢幕範圍，關閉活動狀態
+        // 當移動越過左右極限邊界時 (-60 與 850)，自行關閉活動狀態退出迴圈運算
         if (x < -60 || x > 850) {
             active = false;
         }
@@ -39,30 +46,30 @@ public class UFO {
     public void draw(Graphics g) {
         if (!active) return;
 
-        // 為了讓飛碟比普通外星人寬一點點，微調座標
+        // 為了將圖形中心拉平至原本的判定點，手動加上負偏移量
         int ufoX = x - 5;
         int ufoWidth = 50;
 
-        // 1. 畫出半圓形圓頂 (駕駛艙)
-        g.setColor(Color.CYAN); // 青色圓頂
+        // 使用 fillOval 畫出駕駛艙頂圓弧
+        g.setColor(Color.CYAN); 
         g.fillOval(ufoX + 15, y, 20, 15);
 
-        // 2. 畫出扁平的主機身 (飛盤結構)
-        g.setColor(Color.MAGENTA); // 洋紅色機身
+        // 使用 fillOval 畫出底層機身盤面
+        g.setColor(Color.MAGENTA); 
         g.fillOval(ufoX, y + 10, ufoWidth, 15);
 
-        // 3. 畫出機身邊緣 (增加厚度感)
-        g.setColor(new Color(150, 0, 150)); // 深洋紅色
+        // 使用 fillRect 畫出底部結構增加厚度
+        g.setColor(new Color(150, 0, 150)); 
         g.fillRect(ufoX + 5, y + 18, 40, 3);
 
-        // 4. 畫出下方閃爍的燈光
-        // 利用 System.currentTimeMillis() 讓燈光產生交替閃爍感
+        // 利用 System.currentTimeMillis() 除以 250(毫秒) 取 2 的餘數
+        // 當餘數為 0 或 1 進行切換判斷，能製造每 0.25 秒交換顏色的閃爍燈號視覺
         if ((System.currentTimeMillis() / 250) % 2 == 0) {
             g.setColor(Color.YELLOW);
-            g.fillOval(ufoX + 10, y + 20, 5, 5); // 左燈
-            g.fillOval(ufoX + 35, y + 20, 5, 5); // 右燈
+            g.fillOval(ufoX + 10, y + 20, 5, 5); 
+            g.fillOval(ufoX + 35, y + 20, 5, 5); 
             g.setColor(Color.RED);
-            g.fillOval(ufoX + 22, y + 20, 6, 6); // 中燈
+            g.fillOval(ufoX + 22, y + 20, 6, 6); 
         } else {
             g.setColor(Color.RED);
             g.fillOval(ufoX + 10, y + 20, 5, 5); 
@@ -74,8 +81,7 @@ public class UFO {
     }
 
     public Rectangle getBounds() {
-        // 回傳一個矩形，位置是 (x, y)，寬度 50，高度 20
-        // 這裡的數字要對應你在 draw 方法裡畫圓形的寬高 (fillOval(x, y, 50, 20))
+        // 利用類別實體的 X,Y 值配合常數 50,20，實例化並回傳 AABB 邊界矩形，提供外部實作intersects判定碰撞
         return new Rectangle(x, y, 50, 20); 
     }
 }
