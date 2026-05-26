@@ -209,11 +209,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             g.drawString("SPACE INVADERS", 100, 200);
 
             // 利用系統時間除以 600 毫秒的奇偶數來製造文字閃爍效果
-            if ((System.currentTimeMillis() / 600) % 2 == 0) {
+            //if ((System.currentTimeMillis() / 600) % 2 == 0) {
                 g.setColor(Color.YELLOW);
                 g.setFont(new Font("Arial", Font.BOLD, 25));
                 g.drawString(">>> PRESS ENTER TO START <<<", 210, 350);
-            }
+            //}
 
             // 繪製操作說明外框與內容
             g.setColor(Color.LIGHT_GRAY);
@@ -269,8 +269,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
             // 繪製 3 個固定位置的空格底框
             for (int i = 0; i < 3; i++) {
-                g.setColor(Color.BLACK);
-                g.fillRect(startX + (i * (slotWidth + gap)), startY, slotWidth, slotWidth);
                 g.setColor(Color.GRAY);
                 g.drawRect(startX + (i * (slotWidth + gap)), startY, slotWidth, slotWidth);
             }
