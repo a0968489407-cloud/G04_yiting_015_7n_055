@@ -514,6 +514,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                     hp -= damage;
                     checkGameOver();
                     a.isAlive = false; // 外星人觸底即判定死亡
+                    SoundManager.playExplosion();
                 }
                 // 判定外星人實體是否直接重疊玩家實體
                 else {
