@@ -1,4 +1,5 @@
 package main;
+
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Image;
@@ -23,19 +24,22 @@ public class Shooter {
         }
     }
 
-    public Shooter(int x, int y) { 
-        this.x = x; this.y = y; 
+    public Shooter(int x, int y) {
+        this.x = x;
+        this.y = y;
     }
 
     public void move(int dx) {
         // 將外部傳入的方向增量加入 X 座標
         x += dx;
         // 執行畫面邊界夾擠(Clamp)限制：左極限為 0
-        if (x < 0) x = 0;
+        if (x < 0)
+            x = 0;
         // 右極限為畫面預設寬度 800 減掉自身寬度，確保機體完全不超出右邊界
-        if (x > 800 - WIDTH) x = 800 - WIDTH;
+        if (x > 800 - WIDTH)
+            x = 800 - WIDTH;
     }
-    
+
     public void draw(Graphics g, boolean hasShield) {
         // 若具備護盾狀態，繪製一個半透明覆蓋區
         if (hasShield) {
@@ -51,11 +55,11 @@ public class Shooter {
         // 若圖片順利載入
         if (shipImg != null) {
             // 利用 drawImage 將圖片寬高拉伸至 WIDTH+20 等尺寸，並補償 x,y 偏移使其置中於邏輯座標
-            g.drawImage(shipImg, x - 10, y - 10, WIDTH + 20, HEIGHT + 20, null);
+            g.drawImage(shipImg, x - 5, y - 10, WIDTH, HEIGHT + 20, null);
         } else {
             // 無圖檔防呆機制：使用預先定義的六個頂點座標 (xPoints, yPoints)
-            int[] xPoints = {x + 25, x + 45, x + 30, x + 25, x + 20, x + 5};
-            int[] yPoints = {y, y + 40, y + 45, y + 35, y + 45, y + 40};
+            int[] xPoints = { x + 25, x + 45, x + 30, x + 25, x + 20, x + 5 };
+            int[] yPoints = { y, y + 40, y + 45, y + 35, y + 45, y + 40 };
             g.setColor(Color.CYAN);
             // 利用 fillPolygon 繪製出一個幾何飛機形狀替代圖片
             g.fillPolygon(xPoints, yPoints, 6);
