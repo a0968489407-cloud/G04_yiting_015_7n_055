@@ -12,6 +12,5 @@ public class Main {
         frame.setContentPane(new GamePanel());
         frame.setVisible(true);
 
-        
     }
 }
