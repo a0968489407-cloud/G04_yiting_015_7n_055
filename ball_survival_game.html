@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ball Survival Game - 專案簡報</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a; /* slate-900 */
+        }
+        .slide-transition {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+        .hide-slide {
+            opacity: 0;
+            transform: scale(0.98);
+            pointer-events: none;
+            position: absolute;
+        }
+        .show-slide {
+            opacity: 1;
+            transform: scale(1);
+            position: relative;
+        }
+        /* 自訂捲軸 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1); 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3); 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5); 
+        }
+    </style>
+</head>
+<body class="text-gray-100 h-screen flex flex-col overflow-hidden selection:bg-blue-500 selection:text-white">
+
+    <!-- 頂部進度條 -->
+    <div class="h-1 bg-gray-800 w-full">
+        <div id="progress-bar" class="h-full bg-blue-500 transition-all duration-300" style="width: 0%;"></div>
+    </div>
+
+    <!-- 主要簡報區域 -->
+    <main class="flex-grow flex items-center justify-center p-8 relative overflow-hidden">
+        
+        <!-- 投影片容器，由 JavaScript 動態生成 -->
+        <div id="slide-container" class="w-full max-w-5xl aspect-video bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 flex flex-col relative overflow-hidden">
+            <!-- 內容會注入在這裡 -->
+        </div>
+
+        <!-- 講稿提示浮動面板 (預設隱藏) -->
+        <div id="script-panel" class="absolute bottom-24 right-8 w-96 bg-slate-800/95 backdrop-blur border border-blue-500/50 rounded-xl shadow-2xl p-6 hidden transform transition-all duration-300 z-50">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-600 pb-2">
+                <h3 class="text-blue-400 font-bold flex items-center gap-2"><i class="fas fa-comment-dots"></i> 講稿提示 (Speaker Notes)</h3>
+                <button onclick="toggleScript()" class="text-gray-400 hover:text-white transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <p id="script-content" class="text-slate-300 text-base leading-relaxed h-48 overflow-y-auto pr-2">
+                <!-- 講稿內容 -->
+            </p>
+        </div>
+    </main>
+
+    <!-- 底部控制列 -->
+    <footer class="h-20 bg-slate-900 border-t border-slate-800 flex items-center justify-between px-8 z-40">
+        <div class="flex items-center gap-4">
+            <button id="btn-script" onclick="toggleScript()" class="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded-lg transition-colors border border-slate-700">
+                <i class="fas fa-book-open"></i> <span>顯示講稿</span>
+            </button>
+        </div>
+        
+        <div class="flex items-center gap-6">
+            <button onclick="prevSlide()" class="p-3 rounded-full bg-slate-800 hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <i class="fas fa-chevron-left text-xl"></i>
+            </button>
+            <div class="font-mono text-lg text-slate-400 font-medium">
+                <span id="current-slide-num" class="text-white">1</span> / <span id="total-slide-num">6</span>
+            </div>
+            <button onclick="nextSlide()" class="p-3 rounded-full bg-slate-800 hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <i class="fas fa-chevron-right text-xl"></i>
+            </button>
+        </div>
+
+        <div class="flex items-center gap-2 text-slate-500 text-sm">
+            <i class="fas fa-keyboard"></i> 可使用左右方向鍵切換
+        </div>
+    </footer>
+
+    <script>
+        // 投影片資料結構 (直接轉換自 markdown 內容)
+        const slides = [
+            {
+                id: 1,
+                content: `
+                    <div class="flex-grow flex flex-col items-center justify-center text-center p-12">
+                        <div class="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center mb-8 shadow-lg shadow-blue-500/30">
+                            <i class="fas fa-gamepad text-5xl text-white"></i>
+                        </div>
+                        <h1 class="text-6xl font-bold text-white mb-6 tracking-wide drop-shadow-md">Ball Survival Game</h1>
+                        <h2 class="text-3xl font-light text-blue-400 mb-12">基於 Java 與物件導向設計的生存躲避遊戲</h2>
+                        
+                        <div class="bg-slate-700/50 p-6 rounded-xl border border-slate-600 w-full max-w-2xl text-left">
+                            <ul class="text-xl space-y-4 text-slate-300">
+                                <li class="flex items-start gap-3"><i class="fas fa-user-graduate text-blue-400 mt-1"></i> <strong>報告人：</strong> [B11307155_劉沁恩 / B11307015_羅羿婷]</li>
+                                <li class="flex items-start gap-3"><i class="fas fa-lightbulb text-blue-400 mt-1"></i> <strong>開發動機：</strong> 結合 Java Swing UI 框架與物理邏輯，打造具挑戰性的生存遊戲。</li>
+                            </ul>
+                        </div>
+                    </div>
+                `,
+                script: "各位教授、各位同學大家好。我們今天要報告的專案是使用 Java 開發的「Ball Survival Game」。一款使用 Java Swing 製作的 2D 球類生存競技遊戲。玩家可以在圓形場地中放置多顆球，設定初始方向後開始遊戲。球會在場地內碰撞、反彈並留下線段，其他顏色的球碰到線段時會破壞該線段；當某顆球失去所有線段後就會淘汰，最後存活的顏色獲勝。，我們希望透過這個專案，將課堂上學到的物件導向觀念，實際應用在遊戲開發與介面設計上。"
+            },
+            {
+                id: 2,
+                content: `
+                    <div class="h-full flex flex-col p-10">
+                        <h2 class="text-4xl font-bold text-white mb-2 border-b-2 border-blue-500 inline-block pb-2">遊戲畫面展示</h2>
+                        <p class="text-slate-400 mb-8 text-xl">核心目標：在充滿變化的環境中存活！</p>
+                        
+                        <div class="flex-grow bg-[#050505] rounded-xl border-2 border-slate-600 flex items-center justify-center relative overflow-hidden shadow-inner p-2">
+                            <img src="螢幕擷取畫面 2026-06-04 025659.png" alt="遊戲實機截圖" class="max-w-full max-h-full object-contain rounded-lg drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+                        </div>
+                    </div>
+                `,
+                script: "在進入程式架構之前，先讓大家看看遊戲的實際畫面截圖。大家可以看到畫面中央有許多不同顏色的球體，左側是顯示各顏色線段數量的 Rank 排行榜，右側則是選單介面。遊戲的核心目標是下好離手，存活越久越好。我們針對不同的事件也加入了視覺回饋。"
+            },
+            {
+                id: 3,
+                content: `
+                    <div class="h-full flex flex-col p-10">
+                        <h2 class="text-4xl font-bold text-white mb-10 border-b-2 border-blue-500 inline-block pb-2">核心遊戲機制</h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 flex-grow">
+                            <!-- 道具系統 -->
+                            <div class="bg-slate-700/40 rounded-xl p-8 border border-slate-600 hover:border-blue-400 transition-colors">
+                                <h3 class="text-2xl font-bold text-blue-300 mb-6 flex items-center gap-3"><i class="fas fa-box-open"></i> 豐富道具系統 (Items)</h3>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="bg-slate-800 p-4 rounded-lg flex items-center gap-4 border border-slate-600"><span class="text-3xl">⚡</span> <span class="text-lg">加速</span></div>
+                                    <div class="bg-slate-800 p-4 rounded-lg flex items-center gap-4 border border-slate-600"><span class="text-3xl">🐢</span> <span class="text-lg">減速</span></div>
+                                    <div class="bg-slate-800 p-4 rounded-lg flex items-center gap-4 border border-slate-600"><span class="text-3xl">🦠</span> <span class="text-lg">分裂</span></div>
+                                    <div class="bg-slate-800 p-4 rounded-lg flex items-center gap-4 border border-slate-600"><span class="text-3xl">💖</span> <span class="text-lg">加命</span></div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-col gap-8">
+                                <!-- 遊玩模式 -->
+                                <div class="bg-slate-700/40 rounded-xl p-8 border border-slate-600 flex-grow hover:border-blue-400 transition-colors">
+                                    <h3 class="text-2xl font-bold text-blue-300 mb-4 flex items-center gap-3"><i class="fas fa-layer-group"></i> 多樣遊玩模式</h3>
+                                    <ul class="text-xl space-y-3 text-slate-300 ml-2">
+                                        <li>🔸 <strong>Classic</strong> (經典模式)</li>
+                                        <li>🔸 <strong>Item Mode</strong> (道具模式)</li>
+                                    </ul>
+                                </div>
+                                <!-- 沉浸式體驗 -->
+                                <div class="bg-slate-700/40 rounded-xl p-8 border border-slate-600 flex-grow hover:border-blue-400 transition-colors">
+                                    <h3 class="text-2xl font-bold text-blue-300 mb-4 flex items-center gap-3"><i class="fas fa-headphones"></i> 沉浸式聲光體驗</h3>
+                                    <p class="text-xl text-slate-300">專屬音效 (碰撞、拾取道具)<br><span class="text-blue-400 text-sm mt-2 block">由 <code>SoundManager</code> 驅動</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                script: "為了增加遊戲的可玩性，我們設計了豐富的遊戲機制。首先是道具系統，畫面上會隨機生成加速、減速、分裂或加命道具，玩家拾取後會立刻改變球體的狀態。此外，遊戲分為經典與道具兩種模式，我們也透過 SoundManager 整合了專屬的碰撞與吃道具音效，讓整體沉浸感更好。"
+            },
+            {
+                id: 4,
+                content: `
+                    <div class="h-full flex flex-col p-10">
+                        <h2 class="text-4xl font-bold text-white mb-8 border-b-2 border-blue-500 inline-block pb-2">程式架構與物件導向設計</h2>
+                        
+                        <!-- 架構示意圖 -->
+                        <div class="flex-grow flex gap-6 items-stretch">
+                            <!-- GameManager -->
+                            <div class="flex-1 bg-slate-800 rounded-xl p-6 border-t-4 border-blue-500 shadow-lg relative flex flex-col">
+                                <div class="absolute -top-5 left-1/2 transform -translate-x-1/2 bg-blue-600 p-3 rounded-full text-white shadow-md">
+                                    <i class="fas fa-brain text-xl"></i>
+                                </div>
+                                <h3 class="text-2xl font-bold text-white mt-4 text-center mb-4">GameManager<br><span class="text-sm font-normal text-blue-300">遊戲大腦</span></h3>
+                                <ul class="text-slate-300 space-y-3 flex-grow text-lg">
+                                    <li><i class="fas fa-check text-green-400 mr-2"></i>集中管理 <code>balls</code> 與 <code>items</code> 清單</li>
+                                    <li><i class="fas fa-check text-green-400 mr-2"></i>利用 Enum 控制 <code>GameState</code> (SETUP / PLAYING / GAME_OVER)</li>
+                                    <li><i class="fas fa-check text-green-400 mr-2"></i>控制 <code>GameMode</code></li>
+                                </ul>
+                            </div>
+
+                            <!-- Display -->
+                            <div class="flex-1 bg-slate-800 rounded-xl p-6 border-t-4 border-purple-500 shadow-lg relative flex flex-col">
+                                <div class="absolute -top-5 left-1/2 transform -translate-x-1/2 bg-purple-600 p-3 rounded-full text-white shadow-md">
+                                    <i class="fas fa-desktop text-xl"></i>
+                                </div>
+                                <h3 class="text-2xl font-bold text-white mt-4 text-center mb-4">Display<br><span class="text-sm font-normal text-purple-300">畫面與事件</span></h3>
+                                <ul class="text-slate-300 space-y-3 flex-grow text-lg">
+                                    <li><i class="fas fa-check text-green-400 mr-2"></i>繼承 <code>JPanel</code></li>
+                                    <li><i class="fas fa-check text-green-400 mr-2"></i>透過 <code>Timer</code> 驅動畫面更新 (Game Loop)</li>
+                                    <li><i class="fas fa-check text-green-400 mr-2"></i>實作滑鼠與鍵盤事件監聽器接收操作</li>
+                                </ul>
+                            </div>
+
+                            <!-- Vector2D -->
+                            <div class="flex-1 bg-slate-800 rounded-xl p-6 border-t-4 border-orange-500 shadow-lg relative flex flex-col">
+                                <div class="absolute -top-5 left-1/2 transform -translate-x-1/2 bg-orange-600 p-3 rounded-full text-white shadow-md">
+                                    <i class="fas fa-calculator text-xl"></i>
+                                </div>
+                                <h3 class="text-2xl font-bold text-white mt-4 text-center mb-4">Vector2D<br><span class="text-sm font-normal text-orange-300">物理與數學</span></h3>
+                                <ul class="text-slate-300 space-y-3 flex-grow text-lg">
+                                    <li><i class="fas fa-check text-green-400 mr-2"></i>處理精確的 X/Y 軸浮點數運算</li>
+                                    <li><i class="fas fa-check text-green-400 mr-2"></i>嚴密控制 <code>Ball</code> 的位置與移動速度</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                script: "接下來是這項專案的技術核心。我們採用了嚴謹的物件導向設計：\n第一是作為遊戲大腦的 GameManager，它管理所有物件清單，並用 Enum 精準控制遊戲的狀態與模式。\n第二是負責畫面的 Display 類別，它透過 Timer 建立穩定的遊戲迴圈來不斷重繪畫面，同時監聽玩家的操作。\n最後，為了解決移動不平滑的問題，我們獨立了 Vector2D 類別，專門進行精確的浮點數向量運算，確保球體的移動與碰撞邏輯正確無誤。"
+            },
+            {
+                id: 5,
+                content: `
+                    <div class="h-full flex flex-col p-10">
+                        <h2 class="text-4xl font-bold text-white mb-10 border-b-2 border-blue-500 inline-block pb-2">開發挑戰與協作經驗</h2>
+                        
+                        <div class="flex-grow flex flex-col gap-6">
+                            <!-- 開發挑戰 -->
+                            <div class="bg-slate-800/80 rounded-xl p-8 border-l-4 border-red-500 flex items-start gap-6">
+                                <div class="text-red-500 text-5xl mt-2"><i class="fas fa-bug"></i></div>
+                                <div class="w-full">
+                                    <h3 class="text-2xl font-bold text-white mb-4">技術難點與突破</h3>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                            <p class="text-red-400 font-bold mb-1 text-sm"><i class="fas fa-times-circle"></i> 挑戰一：碰撞造成效能卡頓</p>
+                                            <p class="text-green-400 font-bold text-sm"><i class="fas fa-check-circle"></i> 解決：<span class="text-slate-300 font-normal">優化狀態更新邏輯。</span></p>
+                                        </div>
+                                        <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                            <p class="text-red-400 font-bold mb-1 text-sm"><i class="fas fa-times-circle"></i> 挑戰二：加道具導致遊戲卡死</p>
+                                            <p class="text-green-400 font-bold text-sm"><i class="fas fa-check-circle"></i> 解決：<span class="text-slate-300 font-normal">修正陣列讀寫衝突。</span></p>
+                                        </div>
+                                        <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                            <p class="text-red-400 font-bold mb-1 text-sm"><i class="fas fa-times-circle"></i> 挑戰三：大球分裂小球卻互相攻擊</p>
+                                            <p class="text-green-400 font-bold text-sm"><i class="fas fa-check-circle"></i> 解決：<span class="text-slate-300 font-normal">新增同色(同源)免疫判定。</span></p>
+                                        </div>
+                                        <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                            <p class="text-red-400 font-bold mb-1 text-sm"><i class="fas fa-times-circle"></i> 挑戰四：單色存活未停止遊戲</p>
+                                            <p class="text-green-400 font-bold text-sm"><i class="fas fa-check-circle"></i> 解決：<span class="text-slate-300 font-normal">修正 Game Over 檢查機制。</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                script: "在開發過程中，我們遇到了幾個有趣的邏輯挑戰：首先是大量碰撞造成的效能卡頓，以及加入道具時引發陣列衝突導致的當機；另外，我們在測試時還發現了「大球分裂出的小球會互相攻擊」，還有「場上明明只剩一種顏色的小球，遊戲卻沒有停止」的 Bug。後來透過優化迴圈、加入同色免疫判定以及修正遊戲結束的條件，我們順利排除了這些問題，讓遊戲變得十分穩定。"
+            },
+            {
+                id: 6,
+                content: `
+                    <div class="flex-grow flex flex-col items-center justify-center text-center p-12 h-full">
+                        <div class="w-28 h-28 bg-blue-600 rounded-full flex items-center justify-center mb-8 shadow-lg shadow-blue-500/30 animate-bounce">
+                            <i class="fas fa-heart text-5xl text-white"></i>
+                        </div>
+                        <h1 class="text-7xl font-bold text-white mb-6 tracking-wide drop-shadow-md">Thank You !</h1>
+                        <h2 class="text-3xl font-light text-blue-400 mb-12">感謝大家的聆聽</h2>
+                    </div>
+                `,
+                script: "我們的報告到此結束，非常感謝大家的聆聽！"
+            }
+        ];
+
+        let currentIndex = 0;
+        let scriptVisible = false;
+
+        const container = document.getElementById('slide-container');
+        const currentSlideNum = document.getElementById('current-slide-num');
+        const totalSlideNum = document.getElementById('total-slide-num');
+        const progressBar = document.getElementById('progress-bar');
+        const scriptPanel = document.getElementById('script-panel');
+        const scriptContent = document.getElementById('script-content');
+        const btnScript = document.getElementById('btn-script');
+
+        // 初始化
+        function init() {
+            totalSlideNum.textContent = slides.length;
+            renderSlide();
+            
+            // 鍵盤事件監聽
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' || e.key === ' ') {
+                    nextSlide();
+                } else if (e.key === 'ArrowLeft') {
+                    prevSlide();
+                } else if (e.key === 's' || e.key === 'S') {
+                    toggleScript(); // 快速鍵 S 開關講稿
+                }
+            });
+        }
+
+        // 渲染當前投影片
+        function renderSlide() {
+            const slide = slides[currentIndex];
+            
+            // 加入淡出效果
+            container.classList.add('opacity-0');
+            
+            setTimeout(() => {
+                container.innerHTML = `<div class="w-full h-full show-slide">${slide.content}</div>`;
+                container.classList.remove('opacity-0');
+                
+                // 更新狀態與講稿
+                currentSlideNum.textContent = currentIndex + 1;
+                scriptContent.innerHTML = slide.script.replace(/\n/g, '<br><br>');
+                
+                // 更新進度條
+                const progress = ((currentIndex + 1) / slides.length) * 100;
+                progressBar.style.width = `${progress}%`;
+            }, 150); // 配合淡出動畫時間
+        }
+
+        function nextSlide() {
+            if (currentIndex < slides.length - 1) {
+                currentIndex++;
+                renderSlide();
+            }
+        }
+
+        function prevSlide() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                renderSlide();
+            }
+        }
+
+        function toggleScript() {
+            scriptVisible = !scriptVisible;
+            if (scriptVisible) {
+                scriptPanel.classList.remove('hidden');
+                // 延遲一下讓 display block 先作用，再套用 opacity
+                setTimeout(() => {
+                    scriptPanel.classList.remove('opacity-0', 'translate-y-4');
+                    scriptPanel.classList.add('opacity-100', 'translate-y-0');
+                }, 10);
+                btnScript.classList.replace('text-blue-400', 'text-white');
+                btnScript.classList.replace('bg-slate-800', 'bg-blue-600');
+                btnScript.innerHTML = '<i class="fas fa-book-open"></i> <span>隱藏講稿 (S)</span>';
+            } else {
+                scriptPanel.classList.remove('opacity-100', 'translate-y-0');
+                scriptPanel.classList.add('opacity-0', 'translate-y-4');
+                setTimeout(() => {
+                    scriptPanel.classList.add('hidden');
+                }, 300); // 配合 transition duration
+                btnScript.classList.replace('text-white', 'text-blue-400');
+                btnScript.classList.replace('bg-blue-600', 'bg-slate-800');
+                btnScript.innerHTML = '<i class="fas fa-book"></i> <span>顯示講稿 (S)</span>';
+            }
+        }
+
+        // 啟動應用程式
+        init();
+    </script>
+</body>
+</html>
