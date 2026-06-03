@@ -156,12 +156,7 @@ public class Display extends JPanel implements ActionListener {
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_SPACE) toggleGameMode();
                 else if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    // 若已配置好初始隨機球，按下 Enter 即可啟動
-                    if (gameManager.currentState == GameState.SETUP && !gameManager.balls.isEmpty()) {
-                        gameManager.currentState = GameState.PLAYING;
-                    } else {
-                        handleStartRestart();
-                    }
+                    handleStartRestart();
                 }
                 else if (e.getKeyCode() == KeyEvent.VK_R) showRules();
                 else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) System.exit(0);
